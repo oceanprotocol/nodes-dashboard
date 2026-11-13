@@ -1,3 +1,4 @@
+import { blockBots } from '@/api-services/bot-check';
 import { sendOTP } from '@/api-services/email';
 import { validateSubsidyDataWithAI } from '@/api-services/gemini';
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
+import { requireWalletSignature } from '@/api-services/subsidy-auth';
 import { subsidyDetailsBodySchema } from '@/api-services/subsidy-schemas';
 import {
   isValidHandle,
@@ -44,6 +46,14 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return response.status(400).json({ message: 'Invalid wallet address' });
   }
 
+  if (await blockBots(request, response, data.walletAddress)) {
+    return;
+  }
+
+  if (!(await requireWalletSignature(response, data.walletAddress, data))) {
+    return;
+  }
+
   if (!nameRegex.test(data.name)) {
     return response.status(400).json({ message: 'Invalid name format or length' });
   }
@@ -55,7 +65,10 @@ export default async function handler(request: NextApiRequest, response: NextApi
   data.email = normalizeEmail(data.email);
 
   if (isBlacklistedEmail(data.email)) {
-    return response.status(400).json({ message: 'Invalid email address' });
+    return response.status(400).json({
+      message:
+        'We can’t offer the subsidy to this email address. Try another email, or contact support at help@oncompute.ai and we’ll take a look.',
+    });
   }
 
   data.handles = normalizeHandles(data.handles);

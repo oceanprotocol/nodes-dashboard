@@ -4,7 +4,7 @@ import Card from '@/components/card/card';
 import LookupModal from '@/components/modal/lookup-modal';
 import { getExplorerAddressUrl } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
-import { getProgramPayments, getSubsidyProviderAddresses, loadCustomSubsidyProgram } from '@/lib/subsidy';
+import { getProgramPayments, isOpfSubsidyProvider, loadCustomSubsidyProgram } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { CustomSubsidy, useAddCustomSubsidy, useCustomSubsidies, useRemoveCustomSubsidy } from '@/lib/use-subsidy';
 import { formatError, formatWalletAddress } from '@/utils/formatters';
@@ -149,8 +149,8 @@ const CustomSubsidies = () => {
     }
     const address = ethers.getAddress(query);
     const isSame = (other: string) => other.toLowerCase() === address.toLowerCase();
-    if (getSubsidyProviderAddresses().some(isSame)) {
-      return "This is the ON subsidy. It's already shown above.";
+    if (isOpfSubsidyProvider(address)) {
+      return 'This subsidy cannot be added.';
     }
     if (subsidies.some((subsidy) => isSame(subsidy.address))) {
       return 'You already added this subsidy';

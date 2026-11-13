@@ -330,6 +330,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               cost: estimatedTotalCost ?? 0,
               durationSeconds: selectedResources.maxJobDurationSeconds,
               environmentId: selectedEnv.id,
+              isOpfEligible: false,
               jobType: SubsidyJobType.COMPUTE,
               nodeAddress: selectedEnv.consumerAddress,
               nodeId: nodeInfo?.id ?? selectedEnv.nodeId,

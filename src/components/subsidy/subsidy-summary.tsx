@@ -22,8 +22,8 @@ const SubsidySummary = () => {
           <span className={classNames(styles.summaryDot, toneStyles.dot, toneStyles.credit)} />
           <strong>{formatSubsidyTokenAmount(program.oneTime.credit)}</strong>
           <span>
-            free credit, use across jobs until it runs out
-            {program.oneTime.percent < 100 ? `, ${formatSubsidyAmount(program.oneTime.percent)}% of each job` : ''}
+            free credit, use across eligible services until it runs out
+            {program.oneTime.percent < 100 ? `, ${formatSubsidyAmount(program.oneTime.percent)}% of each service` : ''}
           </span>
         </div>
       ) : null}
@@ -32,7 +32,7 @@ const SubsidySummary = () => {
           <span className={classNames(styles.summaryDot, toneStyles.dot, toneStyles.discount)} />
           <strong>{formatSubsidyAmount(program.discount.percent)}% off</strong>
           <span>
-            each job
+            each eligible service
             {limits.length > 0
               ? `, up to ${limits
                   .map(

@@ -190,6 +190,17 @@
   }
 }
 
+.badgeWithIcon {
+  &::before {
+    display: none;
+  }
+
+  svg {
+    color: var(--accent2);
+    font-size: 16px;
+  }
+}
+
 .featuredActions {
   display: flex;
   flex-wrap: wrap;

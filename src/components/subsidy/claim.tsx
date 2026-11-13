@@ -1,5 +1,6 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
+import { captureSubsidyBotBlocked } from '@/components/subsidy/subsidy-analytics';
 import { getSubsidyPaymentNote, SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidyTiles from '@/components/subsidy/subsidy-tiles';
 import { useProfileContext } from '@/context/profile-context';
@@ -7,16 +8,21 @@ import { captureError, getHttpStatus } from '@/lib/analytics';
 import { getProgramPayments } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useInvalidateSubsidyData, useSubsidyProgram } from '@/lib/use-subsidy';
+import { getSubsidyErrorMessage, useSubsidyRequest } from '@/lib/use-subsidy-request';
+import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SubsidyStatus } from '@/types/subsidy';
 import { formatWalletAddress } from '@/utils/formatters';
-import axios from 'axios';
 import posthog from 'posthog-js';
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './claim.module.css';
 
+// The access list mint can take a few blocks.
+const CLAIM_TIMEOUT_MS = 90 * 1000;
+
 const Claim: React.FC = () => {
   const { account, login } = useOceanAccount();
+  const postSubsidy = useSubsidyRequest();
   const { fetchSubsidyStatus, subsidyInfo } = useProfileContext();
   const invalidateSubsidyData = useInvalidateSubsidyData();
   const { data: program } = useSubsidyProgram();
@@ -33,7 +39,7 @@ const Claim: React.FC = () => {
     }
     try {
       setIsLoading(true);
-      await axios.post('/api/subsidy/claim', { walletAddress: account.address });
+      await postSubsidy('/api/subsidy/claim', {}, CLAIM_TIMEOUT_MS);
       posthog.capture('subsidy_claimed');
       if (typeof window !== 'undefined' && typeof (window as any).gtag === 'function') {
         (window as any).gtag('event', 'conversion', {
@@ -50,11 +56,8 @@ const Claim: React.FC = () => {
       }
     } catch (error) {
       captureError('subsidy_claim_failed', error, { httpStatus: getHttpStatus(error) });
-      if (axios.isAxiosError(error) && error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error('Failed to claim subsidy. Please try again.');
-      }
+      captureSubsidyBotBlocked(error, 'claim');
+      toast.error(getSubsidyErrorMessage(error, 'Failed to claim subsidy. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -68,18 +71,15 @@ const Claim: React.FC = () => {
           <span className="chip chipSuccess">{isClaimed ? 'Claimed' : 'Email verified'}</span>
         </div>
         <span className={styles.muted}>
-          {isClaimed ? 'Use it on jobs and models running on supported nodes.' : 'Activate it for wallet '}
+          {isClaimed ? 'Use it on eligible services running on supported nodes.' : 'Activate it for wallet '}
           {isClaimed ? null : <span className={styles.wallet}>{formatWalletAddress(account.address ?? '')}</span>}
         </span>
       </div>
       <SubsidyTiles />
       {isClaimed ? (
         <div className="actionsGroupLgEnd">
-          <Button color="accent1" href="/run-job/environments" size="lg" variant="outlined">
-            Run a job
-          </Button>
-          <Button color="accent1" href="/inference" size="lg" variant="filled">
-            Use a model
+          <Button color="accent1" href={INFERENCE_PATHS.templates} size="lg" variant="filled">
+            Run a service
           </Button>
         </div>
       ) : (

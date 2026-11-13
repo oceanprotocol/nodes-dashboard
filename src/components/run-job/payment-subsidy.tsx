@@ -69,6 +69,7 @@ const formatText = (amount: number) => formatTokenAmount(amount, USDC.address);
 type PaymentSubsidyProps = {
   /** Amount column only: shares the summary's precision. Sentences use their own. */
   format: (amount: number) => string;
+  isOpfEligible: boolean;
   jobType: SubsidyJobType;
   /** The node decides which subsidy applies. */
   nodeAddress?: string;
@@ -76,13 +77,14 @@ type PaymentSubsidyProps = {
 };
 
 /** Amounts are quotes; the lock settles the final figure. */
-const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubsidyProps) => {
+const PaymentSubsidy = ({ format, isOpfEligible, jobType, nodeAddress, totalCost }: PaymentSubsidyProps) => {
   const { subsidyInfo } = useProfileContext();
   const { data: program, isError: isProgramError } = useSubsidyProgram();
   const { data: usage, isError: isUsageError } = useSubsidyUsage();
   const { data: isNodeSubsidized } = useIsNodeSubsidized(nodeAddress);
   const { data: quote, isError: isQuoteError } = useSubsidyQuote({
     cost: totalCost,
+    isOpfEligible,
     jobType,
     nodeAddress,
   });
@@ -91,7 +93,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
     return null;
   }
 
-  if (isProgramError || isUsageError || isQuoteError) {
+  if (isOpfEligible && (isProgramError || isUsageError || isQuoteError)) {
     return (
       <SubsidyRow
         description="This job is priced in full for now. Reload the page to try again."
@@ -320,7 +322,7 @@ const PaymentSubsidy = ({ format, jobType, nodeAddress, totalCost }: PaymentSubs
           tone="success"
         />
       ))}
-      {renderOpfRow()}
+      {isOpfEligible ? renderOpfRow() : null}
     </>
   );
 };

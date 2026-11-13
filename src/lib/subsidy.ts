@@ -277,8 +277,15 @@ export const loadCustomSubsidyProgram = async (address: string): Promise<Subsidy
   return program;
 };
 
+export const isOpfSubsidyProvider = (address: string) =>
+  getSubsidyProviderAddresses().some((provider) => provider.toLowerCase() === address.toLowerCase());
+
+/** Stored addresses minus ON providers, which never count as custom. */
+export const getCustomSubsidyAddresses = (payer: string): string[] =>
+  recallCustomSubsidies(payer).filter((address) => !isOpfSubsidyProvider(address));
+
 const loadCustomSubsidyProviders = async (payer: string): Promise<string[]> => {
-  const addresses = recallCustomSubsidies(payer);
+  const addresses = getCustomSubsidyAddresses(payer);
   const entries = await Promise.allSettled(addresses.map(loadProgramEntry));
   return addresses.filter((_, index) => {
     const entry = entries[index];
@@ -323,9 +330,10 @@ export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: str
 };
 
 /**
- * Mirrors the escrow: prepaid providers cover the job at lock, then postpaid ones refund part of what the payer locked
- * at claim. Each provider sees what the previous ones left uncovered.
- * Custom providers go first, in the order added, then ON ones; a custom provider that fails to quote is skipped.
+ * Prepaid providers cover the job at lock, postpaid ones refund part of what the payer locked at claim.
+ * Each provider sees what the previous ones left uncovered.
+ * Order: custom prepaid, custom postpaid, ON prepaid, ON postpaid; custom ones keep the order added.
+ * A custom provider that fails to quote is skipped.
  */
 export const quoteSubsidy = async ({
   cost,
@@ -375,9 +383,11 @@ export const quoteSubsidy = async ({
       payments[address] = payment;
     }
   }
-  const order = (['prepaid', 'postpaid'] as const).flatMap((payment) =>
-    paymentList.filter((entry) => entry.payment === payment).map((entry) => entry.address)
-  );
+  const byPayment = (addresses: string[]) =>
+    (['prepaid', 'postpaid'] as const).flatMap((payment) =>
+      addresses.filter((address) => payments[address] === payment)
+    );
+  const order = [...byPayment(custom), ...byPayment(programProviders)];
 
   const quoteProvider = async (address: string, subsidyNeeded: number) => {
     const view = getView(address);
@@ -452,42 +462,55 @@ export type JobSubsidyStatus = 'covered' | 'error' | 'no_providers' | 'not_cover
 export type JobSubsidy = {
   /** Set when `status` is `error`. */
   error?: string;
-  /** Sent to the node as is. `undefined` leaves the choice to the node, which then uses its own configured providers. */
+  /**
+   * Sent to the node as is. `undefined` leaves the choice to the node, which then uses its own configured providers;
+   * an empty list tells it to apply no subsidy.
+   */
   providers: string[] | undefined;
   /** `null` when nothing was quoted (`zero_cost`, `no_providers`, `error`). */
   quote: SubsidyQuote | null;
   status: JobSubsidyStatus;
 };
 
-/** Quotes the subsidy for a job about to start. Never throws: a failed quote leaves the choice to the node. */
+/**
+ * Quotes the subsidy for a job about to start. Never throws.
+ * When nothing is quoted, a job the ON subsidy covers leaves the choice to the node. Any other job only gets custom
+ * providers, and tells the node to apply no subsidy instead of falling back to its choice.
+ */
 export const resolveJobSubsidy = async ({
   cost,
+  isOpfEligible,
   jobType,
   nodeAddress,
   payer,
 }: {
   cost: number;
+  isOpfEligible: boolean;
   jobType: SubsidyJobType;
   nodeAddress: string;
   payer: string;
 }): Promise<JobSubsidy> => {
+  const fallback = isOpfEligible ? undefined : [];
   if (cost <= 0) {
-    return { providers: undefined, quote: null, status: 'zero_cost' };
+    return { providers: fallback, quote: null, status: 'zero_cost' };
   }
   try {
-    const [program, customProviders] = await Promise.all([loadSubsidyProgram(), loadCustomSubsidyProviders(payer)]);
+    const [program, customProviders] = await Promise.all([
+      isOpfEligible ? loadSubsidyProgram() : null,
+      loadCustomSubsidyProviders(payer),
+    ]);
     if (!program && customProviders.length === 0) {
-      return { providers: undefined, quote: null, status: 'no_providers' };
+      return { providers: fallback, quote: null, status: 'no_providers' };
     }
     const quote = await quoteSubsidy({ cost, customProviders, jobType, nodeAddress, payer, program });
     return quote.providers.length > 0
       ? { providers: quote.providers, quote, status: 'covered' }
-      : { providers: undefined, quote, status: 'not_covered' };
+      : { providers: fallback, quote, status: 'not_covered' };
   } catch (error) {
     console.error('Failed to resolve subsidy providers for job', error);
     return {
       error: error instanceof Error ? error.message : String(error),
-      providers: undefined,
+      providers: fallback,
       quote: null,
       status: 'error',
     };

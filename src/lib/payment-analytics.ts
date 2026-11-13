@@ -31,6 +31,8 @@ export type PaidStartContext = {
   /** For a prolong, the extra seconds. */
   durationSeconds: number;
   environmentId: string;
+  /** Whether the ON subsidy covers this kind of job. Custom subsidies are quoted either way. */
+  isOpfEligible: boolean;
   jobType: SubsidyJobType;
   /** The environment's consumerAddress: the escrow payee, and the node the subsidy was quoted for. */
   nodeAddress: string;
@@ -176,8 +178,8 @@ const sameAddresses = (a: string[], b: string[]) => {
  * Whether the payment was subsidized, as far as the dashboard can tell when the node accepts it.
  * - `subsidized`: the dashboard quoted a subsidy, and the node confirmed it uses the providers sent. For a prolong,
  *   confirmed means the service was created by a node that honours provider lists.
- * - `not_subsidized`: nothing was quoted, and the node either can't subsidize (older than v5), used no providers, or
- *   only used providers the dashboard had asked and that quoted nothing.
+ * - `not_subsidized`: nothing was quoted, and the node either can't subsidize (older than v5), was told to apply no
+ *   subsidy, used no providers, or only used providers the dashboard had asked and that quoted nothing.
  * - `unknown`: anything else, e.g. a quoted subsidy on a node that ignores provider lists.
  */
 export const deriveSubsidyStatus = (
@@ -193,13 +195,14 @@ export const deriveSubsidyStatus = (
       ? 'subsidized'
       : 'unknown';
   }
-  // Nothing was sent, so the node used its own configured providers, if it supports any.
+  // The node got no list, so it used its own configured providers if it supports any, or an empty list (no subsidy).
   if (!reply.nodeSubsidyAware) {
     return 'not_subsidized';
   }
   if (action === 'prolong') {
-    // An extension's providers aren't in the reply; with `not_covered`, every provider asked quoted nothing.
-    return subsidy.status === 'not_covered' ? 'not_subsidized' : 'unknown';
+    // An extension's providers aren't in the reply. An empty list rules a subsidy out; with `not_covered`, every
+    // provider asked quoted nothing.
+    return subsidy.providers?.length === 0 || subsidy.status === 'not_covered' ? 'not_subsidized' : 'unknown';
   }
   const asked = new Set(subsidy.quote?.quotedProviders.map((address) => address.toLowerCase()));
   return (reply.nodeSubsidyProviders ?? []).every((address) => asked.has(address)) ? 'not_subsidized' : 'unknown';
@@ -221,11 +224,13 @@ export const buildPaymentProps = (context: PaidStartContext, subsidy: JobSubsidy
     chainId: CHAIN_ID,
     durationSeconds: context.durationSeconds,
     environmentId: context.environmentId,
+    isOpfEligible: context.isOpfEligible,
     jobType: getSubsidyJobTypeName(context.jobType),
     nodeAddress: context.nodeAddress.toLowerCase(),
     nodeId: context.nodeId,
     payer: context.payer.toLowerCase(),
-    providerSelection: subsidy.providers ? 'explicit' : 'node_default',
+    // `none`: an empty list was sent, which tells the node to apply no subsidy.
+    providerSelection: !subsidy.providers ? 'node_default' : subsidy.providers.length > 0 ? 'explicit' : 'none',
     quoteError: subsidy.error?.slice(0, QUOTE_ERROR_MAX_LENGTH),
     quoteStatus: subsidy.status,
     quotedCost: toUsdc(context.cost),

@@ -41,6 +41,7 @@ const Payment = ({ minLockSeconds, selectedEnv, setPageSubtitle, totalCost }: Pa
 
   const { isQuoting, payerCost } = usePayerCost({
     cost: totalCost,
+    isOpfEligible: false,
     jobType: SubsidyJobType.COMPUTE,
     nodeAddress: selectedEnv.consumerAddress,
   });
@@ -94,6 +95,7 @@ const Payment = ({ minLockSeconds, selectedEnv, setPageSubtitle, totalCost }: Pa
       <PaymentSummary
         authorizations={authorizations}
         escrowBalance={escrowBalance ?? 0}
+        isOpfEligible={false}
         loadPaymentInfo={loadPaymentInfo}
         nodeAddress={selectedEnv.consumerAddress}
         subsidyJobType={SubsidyJobType.COMPUTE}

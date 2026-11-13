@@ -8,6 +8,7 @@ import { InferenceBranch, trackInferenceFlowStarted } from '@/lib/inference-anal
 import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SHOWCASE_ITEMS } from '@/services/showcase';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import WidgetsOutlinedIcon from '@mui/icons-material/WidgetsOutlined';
 
@@ -51,7 +52,8 @@ const InferenceIndexPage: React.FC = () => {
                   Browse templates
                 </Button>
               }
-              badge="Fastest way to start"
+              badge="ON Subsidy"
+              badgeIcon={<CheckCircleIcon />}
               description="Ready-made bundles of an app and the models it needs. Pick one and start it in a few clicks, on a GPU picked for you."
               icon={<Inventory2OutlinedIcon />}
               backgroundMedia={BACKGROUND_MEDIA}

@@ -17,7 +17,7 @@ const SubsidizedNodeChip = ({ nodeAddress, peerId }: SubsidizedNodeChipProps) =>
   }
 
   return (
-    <Tooltip title="The ON subsidy applies to jobs and models on this node">
+    <Tooltip title="The ON subsidy applies to eligible services on this node">
       <span className={classNames('chip', 'chipAccent2', styles.smallChip)} tabIndex={0}>
         Subsidized
       </span>

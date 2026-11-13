@@ -2,12 +2,14 @@ import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import Input from '@/components/input/input';
 import InputWrapper from '@/components/input/input-wrapper';
+import { captureSubsidyBotBlocked } from '@/components/subsidy/subsidy-analytics';
 import { SUBSIDY_STATUS_REFRESH_ERROR } from '@/components/subsidy/subsidy-copy';
 import SubsidySummary from '@/components/subsidy/subsidy-summary';
 import { useProfileContext } from '@/context/profile-context';
 import { useSubsidyContext } from '@/context/subsidy-context';
 import { captureError, getHttpStatus } from '@/lib/analytics';
 import { useOceanAccount } from '@/lib/use-ocean-account';
+import { getSubsidyErrorMessage, useSubsidyRequest } from '@/lib/use-subsidy-request';
 import {
   isValidHandle,
   normalizeHandle,
@@ -39,6 +41,7 @@ const handleSchema = (service: SubsidyHandleService) =>
 
 const Details: React.FC = () => {
   const { account, login } = useOceanAccount();
+  const postSubsidy = useSubsidyRequest();
   const router = useRouter();
 
   const { subsidyDetails, setSubsidyDetails } = useSubsidyContext();
@@ -67,7 +70,7 @@ const Details: React.FC = () => {
           name: values.name,
           walletAddress: account.address,
         };
-        const response = await axios.post<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
+        const response = await postSubsidy<SubmitSubsidyDetailsResponse>('/api/subsidy/details', details);
         setSubsidyDetails(details);
         posthog.capture('subsidy_details_submitted', {
           handleServices: Object.keys(handles),
@@ -88,7 +91,8 @@ const Details: React.FC = () => {
           ? error.response?.data?.message
           : undefined;
         captureError('subsidy_details_failed', error, { httpStatus: getHttpStatus(error), message: responseMessage });
-        toast.error(responseMessage ?? 'Failed to submit form. Please try again.');
+        captureSubsidyBotBlocked(error, 'details');
+        toast.error(getSubsidyErrorMessage(error, 'Failed to submit form. Please try again.'));
         console.error('Failed to submit form', error);
       }
     },

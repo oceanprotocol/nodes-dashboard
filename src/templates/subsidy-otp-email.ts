@@ -29,7 +29,7 @@ export function getSubsidyOtpEmailTemplate({ otp }: { otp: string }) {
         </tr>
         <tr>
           <td style="text-align: left; vertical-align: top">
-            <p style="margin: 8px 0 0; font-size: 14px; color: #ffffff">Email verification code</p>
+            <p style="margin: 8px 0 0; font-size: 14px; color: #ffffff">Confirm your application</p>
           </td>
         </tr>
       </table>
@@ -41,11 +41,12 @@ export function getSubsidyOtpEmailTemplate({ otp }: { otp: string }) {
     <td style="padding: 32px">
       <p style="margin: 0 0 16px; font-size: 16px">Hi,</p>
 
-      <p style="margin: 0 0 24px; font-size: 15px; line-height: 24px">
-        Use the verification code below to continue your subsidy claim on
+      <p style="margin: 0 0 24px; font-size: 16px; line-height: 24px">
+        A subsidy application on
         <a href="${config.links.website}" target="_blank" style="color: #d54335; text-decoration: none"
-          >Ocean Network.</a
+          >Ocean Network</a
         >
+        was submitted with this email address. If it's yours, enter the code below to confirm it.
       </p>
 
       <!-- Code -->
@@ -66,8 +67,9 @@ export function getSubsidyOtpEmailTemplate({ otp }: { otp: string }) {
         </tr>
       </table>
 
-      <p style="margin: 0 0 24px; font-size: 13px; color: #6b7280">
-        If you didn't request this, you can safely ignore this email.
+      <p style="margin: 0 0 24px; font-size: 14px; color: #6b7280">
+        If you didn't apply, ignore this email and don't share the code. The application can't be completed without
+        it.
       </p>
 
       <!-- Divider -->

@@ -280,6 +280,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const totalCost = useMemo(() => roundTokenAmount(price, USDC.address, 'up'), [price]);
 
   const startWithSubsidy = useStartWithSubsidy();
+  const isOpfEligible = branch === 'template';
 
   /** What the payment events record about a paid start or prolong. Quoted with the same `totalCost` the page shows. */
   const buildServicePaymentContext = useCallback(
@@ -289,17 +290,19 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       cost: totalCost,
       durationSeconds: jobDurationSeconds,
       environmentId: env.environment.id,
+      isOpfEligible,
       jobType: SubsidyJobType.SERVICE,
       nodeAddress: env.environment.consumerAddress,
       nodeId: env.nodeInfo.id,
       payer,
       serviceId,
     }),
-    [branch, jobDurationSeconds, totalCost]
+    [branch, isOpfEligible, jobDurationSeconds, totalCost]
   );
 
   const { isQuoting: isSubsidyQuoting, payerCost } = usePayerCost({
     cost: totalCost,
+    isOpfEligible,
     jobType: SubsidyJobType.SERVICE,
     nodeAddress: selectedEnv?.environment.consumerAddress,
   });
@@ -1342,6 +1345,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     <PaymentSummary
                       authorizations={authorizations}
                       escrowBalance={escrowBalance ?? 0}
+                      isOpfEligible={isOpfEligible}
                       loadPaymentInfo={loadPaymentInfo}
                       nodeAddress={selectedEnv?.environment.consumerAddress}
                       subsidyJobType={SubsidyJobType.SERVICE}
