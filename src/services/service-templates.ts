@@ -3,7 +3,7 @@ import { DEFAULT_NODE_HTTP_URL, DEFAULT_NODE_URI } from '@/constants/default-nod
 import { NodeUri } from '@/contexts/P2PContext';
 import { withTimeout } from '@/lib/with-timeout';
 import { isModelAppType, isTemplateAppType, readServiceMetadata } from '@/services/service-metadata';
-import { AppBundle, AppTemplate, isBundle, isService } from '@/types/templates';
+import { AppBundle, AppTemplate, isBundle, isCurated, isService } from '@/types/templates';
 import { ComputeJobMetadata, ServiceTemplatePublic } from '@oceanprotocol/lib';
 
 /**
@@ -318,7 +318,12 @@ export function selectServices(templates: AppTemplate[]): AppTemplate[] {
   return templates.filter(isService);
 }
 
-/** The bundles of a catalogue. */
+/** The bundles of a catalogue. Curated models have their own page, so they are left out here. */
 export function selectBundles(templates: AppTemplate[]): AppBundle[] {
-  return templates.filter(isBundle);
+  return templates.filter(isBundle).filter((tpl) => !isCurated(tpl));
+}
+
+/** The curated models of a catalogue. */
+export function selectCurated(templates: AppTemplate[]): AppBundle[] {
+  return templates.filter(isCurated);
 }

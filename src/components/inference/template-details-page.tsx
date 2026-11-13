@@ -172,9 +172,10 @@ const AccessNote: React.FC<{ visual: TemplateVisual }> = ({ visual }) => (
 );
 
 /**
- * The details page of one catalogue entry: /inference/services/[templateId] for a service and
- * /inference/templates/[templateId] for a template (a bundle on the wire). Laid out like the package
- * page (see details-page.tsx): identity header, quick start banner, then the same sections in the same
+ * The details page of one catalogue entry: /inference/services/[templateId] for a service,
+ * /inference/templates/[templateId] for a template (a bundle on the wire) and
+ * /inference/default-models/[templateId] for a curated model. Built on the shared details layout
+ * (see details-page.tsx): identity header, quick start banner, then the same sections in the same
  * order for every template:
  *
  * 1. **What it is**: the published description.

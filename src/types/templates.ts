@@ -107,6 +107,11 @@ export function isBundle(tpl: AppTemplate): tpl is AppBundle {
   return (tpl.kind === 'bundle' || tpl.kind === 'curated') && typeof tpl.service === 'string' && tpl.service.length > 0;
 }
 
+/** A curated model: launched like a bundle, but listed on its own catalogue (Models → Curated). */
+export function isCurated(tpl: AppTemplate): tpl is AppBundle {
+  return isBundle(tpl) && tpl.kind === 'curated';
+}
+
 /** Everything that isn't a bundle, including every template published before `kind` existed. */
 export function isService(tpl: AppTemplate): boolean {
   return !isBundle(tpl);
