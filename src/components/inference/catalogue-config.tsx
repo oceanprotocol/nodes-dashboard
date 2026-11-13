@@ -1,7 +1,8 @@
 import Button from '@/components/button/button';
+import { TemplateKindLabel } from '@/components/stepper/get-steps';
 import { INFERENCE_PATHS } from '@/services/inference-url';
-import { selectBundles, selectServices } from '@/services/service-templates';
-import { AppTemplate, isBundle } from '@/types/templates';
+import { selectBundles, selectCurated, selectServices } from '@/services/service-templates';
+import { AppTemplate, isBundle, isCurated } from '@/types/templates';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import cx from 'classnames';
@@ -9,11 +10,12 @@ import { ReactNode } from 'react';
 import styles from './catalogue.module.css';
 
 /**
- * Everything that differs between the two catalogues, in one place.
+ * Everything that differs between the three catalogues, in one place.
  *
  * The pages are otherwise the same page (see CataloguePage) and the toolbar is the same toolbar (see
- * CatalogueBrowser), so the only thing worth writing twice is the copy — and this is where the wire
- * vocabulary (`service` / `bundle`) is translated into the product's ("Service" / "Template").
+ * CatalogueBrowser), so the only thing worth writing per catalogue is the copy — and this is where the
+ * wire vocabulary (`service` / `bundle` / `curated`) is translated into the product's ("Service" /
+ * "Template" / "Model").
  */
 export type CatalogueCopy = {
   /** Toolbar heading and lead. */
@@ -31,7 +33,7 @@ export type CatalogueCopy = {
 
 export type CatalogueConfig = CatalogueCopy & {
   /** First step's label in the stepper — the catalogue knows its kind before anything is picked. */
-  kindLabel: 'Service' | 'Template';
+  kindLabel: TemplateKindLabel;
   /** Narrows the node's catalogue to this page's entries. */
   select: (catalogue: AppTemplate[]) => AppTemplate[];
 };
@@ -80,6 +82,29 @@ export const BUNDLES_CATALOGUE: CatalogueConfig = {
   ),
 };
 
-/** The catalogue that lists a template: a bundle is only on Templates, everything else only on Services. */
-export const catalogueFor = (tpl: AppTemplate): CatalogueConfig =>
-  isBundle(tpl) ? BUNDLES_CATALOGUE : SERVICES_CATALOGUE;
+/** Models → Curated: the node's `kind: 'curated'` templates, a fixed model on a parent service. */
+export const CURATED_CATALOGUE: CatalogueConfig = {
+  kindLabel: 'Model',
+  select: selectCurated,
+  pathname: INFERENCE_PATHS.packages,
+  heading: 'Pick a model',
+  lead: 'A model with its engine settings, preconfigured and ready to run. Pick one, review what’s inside, pay and launch.',
+  noun: 'model',
+  nounPlural: 'models',
+  searchPlaceholder: 'Search models',
+  empty: <div className={cx(styles.stateBox, 'textSecondary')}>No curated models available right now.</div>,
+};
+
+/** The first step's label for a template: the kind of catalogue that lists it. */
+export const kindLabelFor = (tpl: AppTemplate): TemplateKindLabel => catalogueFor(tpl).kindLabel;
+
+/**
+ * The catalogue that lists a template: a curated model is only on Models → Curated, any other bundle
+ * only on Templates, everything else only on Services.
+ */
+export function catalogueFor(tpl: AppTemplate): CatalogueConfig {
+  if (isCurated(tpl)) {
+    return CURATED_CATALOGUE;
+  }
+  return isBundle(tpl) ? BUNDLES_CATALOGUE : SERVICES_CATALOGUE;
+}

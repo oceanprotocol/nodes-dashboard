@@ -3,7 +3,7 @@ import { DEFAULT_NODE_HTTP_URL, DEFAULT_NODE_URI } from '@/constants/default-nod
 import { NodeUri } from '@/contexts/P2PContext';
 import { withTimeout } from '@/lib/with-timeout';
 import { isModelAppType, isTemplateAppType, readServiceMetadata } from '@/services/service-metadata';
-import { AppBundle, AppTemplate, isBundle, isService } from '@/types/templates';
+import { AppBundle, AppTemplate, isBundle, isCurated, isService } from '@/types/templates';
 import { ComputeJobMetadata, ServiceTemplatePublic } from '@oceanprotocol/lib';
 
 /**
@@ -36,6 +36,9 @@ const CATALOGUE_TIMEOUT_MS = 15_000;
  * the P2P fallback needs. Measured against the default node, HTTP answers in ~1.4-2.1s.
  */
 const TRANSPORT_TIMEOUT_MS = 6000;
+
+// The node the catalogue is fetched from over HTTP. `||` so an empty value also means the default node.
+const TEMPLATES_NODE_URL = process.env.NEXT_PUBLIC_TEMPLATES_NODE_URL || DEFAULT_NODE_HTTP_URL;
 
 /**
  * Run one non-final transport, capped and non-throwing: a miss is `null` so the ladder can fall
@@ -135,7 +138,7 @@ export async function fetchTemplates(
       // every other node call in this flow there is no auth token or per-address nonce to burn, so a
       // failed rung costs only its own round trip.
       const httpTemplates = await tryCatalogueTransport('http', (attemptSignal) =>
-        getServiceTemplates(DEFAULT_NODE_HTTP_URL, CHAIN_ID, attemptSignal)
+        getServiceTemplates(TEMPLATES_NODE_URL, CHAIN_ID, attemptSignal)
       );
       // A libp2p round trip has no timeout of its own: an unreachable node/relay leaves the promise
       // pending forever. That used to cost nothing, but the manage page now holds Edit/Prolong until
@@ -315,7 +318,12 @@ export function selectServices(templates: AppTemplate[]): AppTemplate[] {
   return templates.filter(isService);
 }
 
-/** The bundles of a catalogue. */
+/** The bundles of a catalogue. Curated models have their own page, so they are left out here. */
 export function selectBundles(templates: AppTemplate[]): AppBundle[] {
-  return templates.filter(isBundle);
+  return templates.filter(isBundle).filter((tpl) => !isCurated(tpl));
+}
+
+/** The curated models of a catalogue. */
+export function selectCurated(templates: AppTemplate[]): AppBundle[] {
+  return templates.filter(isCurated);
 }

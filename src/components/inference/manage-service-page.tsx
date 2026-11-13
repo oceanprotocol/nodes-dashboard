@@ -53,7 +53,7 @@ import {
 import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/service-readiness';
-import { isBundle } from '@/types/templates';
+import { includedRepoId, isBundle, isCurated } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
@@ -105,6 +105,28 @@ function serviceBaseUrl(job: ServiceJob | null): string | null {
   const port = enginePort(job.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm');
   const match = job.endpoints.find((ep) => ep.containerPort === port);
   return (match ?? job.endpoints[0]).url;
+}
+
+/**
+ * The launch a curated service runs, as the argv a model launch sends (`--model <id> <flags>`), so
+ * parseEngineCommand reads it like any model service. A curated bootstrap sets its variables as
+ * `NAME="value"` lines and ends in one `exec vllm serve "$MODEL" <flags>` call; the template publishes
+ * neither the flags nor the served name anywhere else. Null when the service reports no command (an
+ * image with the bootstrap baked in).
+ */
+function curatedEngineCommand(dockerCmd: string[] | undefined): string[] | null {
+  const script = dockerCmd?.join('\n') ?? '';
+  const call = /^exec vllm serve ((?:.*\\\n)*.*)$/m.exec(script);
+  if (!call) {
+    return null;
+  }
+  const vars = new Map(Array.from(script.matchAll(/^([A-Z_]+)="?([^"\s]*)"?/gm), (m) => [m[1], m[2]]));
+  const args = call[1]
+    .replace(/\\\n/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((arg) => arg.replace(/^"(.*)"$/, '$1').replace(/^\$([A-Z_]+)$/, (_, name) => vars.get(name) ?? ''));
+  return ['--model', ...args];
 }
 
 // How long a service may report not-ready before its app can be opened anyway: a node that cannot
@@ -596,6 +618,24 @@ const ManageServicePage: React.FC = () => {
       ? Math.max(0, serviceBounds.max - durationRemainingSeconds)
       : undefined;
   const isTemplate = !!template;
+  // A curated model is a template on the wire, but it serves an OpenAI-compatible API and no web UI,
+  // so the page shows it as a model service: base URL, API references and a curl test. Edit and
+  // prolong still go through the template flow.
+  const isCuratedService = !!template && isCurated(template);
+  const isAppService = isTemplate && !isCuratedService;
+  // The Model card of a curated service: the model its template includes, with the launch flags of
+  // its bootstrap. Kept apart from `models`, which feeds the Edit and Prolong selection.
+  const curatedModels: ServiceModel[] = useMemo(() => {
+    if (!isCuratedService || !template) {
+      return [];
+    }
+    const argv = curatedEngineCommand(job?.dockerCmd);
+    const launch = argv ? parseEngineCommand(argv, job?.tag) : null;
+    const included = template.includes?.find((item) => item.kind === 'model');
+    const modelId = (included && includedRepoId(included)) ?? launch?.modelId;
+    return modelId ? [{ model: { id: modelId }, params: launch?.params }] : [];
+  }, [isCuratedService, template, job?.dockerCmd, job?.tag]);
+  const shownModels = isCuratedService ? curatedModels : models;
   // A bundle without configurable env vars has no settings to edit.
   const bundleHasConfig = (template?.userConfigurableEnvVars?.length ?? 0) > 0;
   // What the container actually runs, per the node's job record — outranks the template the link
@@ -875,7 +915,10 @@ const ManageServicePage: React.FC = () => {
     !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!bookedResources && !heldLock;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
-  const primaryModelName = models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
+  // A curated model answers only to its served name, which is known only from its launch flags.
+  const primaryModelName = isCuratedService
+    ? (curatedModels[0]?.params?.servedModelName ?? '<model id from GET /v1/models>')
+    : models[0]?.params?.servedModelName || models[0]?.model.id || 'model';
 
   /**
    * Edit → back to model-selection with the whole selection on the query. The `edit` flag skips env
@@ -1042,7 +1085,7 @@ const ManageServicePage: React.FC = () => {
                 {/* Anything that isn't a template app is a model service — reached from the custom
                     picker OR from a curated package, and the package identity isn't carried this far,
                     so the label has to be true for both rather than claim a custom selection. */}
-                <div className={styles.meta}>{isTemplate ? 'Template app' : 'Model service'}</div>
+                <div className={styles.meta}>{isAppService ? 'Template app' : 'Model service'}</div>
               </div>
               <div className={styles.headerStatus}>
                 {/* How far along the startup is, next to what the status says it is. Renders
@@ -1142,14 +1185,14 @@ const ManageServicePage: React.FC = () => {
               appears, so "unknown" must be stated rather than the card silently vanishing — otherwise
               the previous service's card is the last thing the user saw here. Skipped entirely for a
               template app, which serves no model at all (its whole config rides in the template). */}
-          {!isTemplate && (
+          {!isAppService && (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div className={styles.howToHead}>
                 <h3>Model</h3>
-                {models.length > 0 && <span className="textSecondary">Expand for launch parameters</span>}
+                {shownModels.length > 0 && <span className="textSecondary">Expand for launch parameters</span>}
               </div>
-              {models.length > 0 ? (
-                <InferenceModelList models={models} />
+              {shownModels.length > 0 ? (
+                <InferenceModelList models={shownModels} />
               ) : (
                 <div className="textSecondary">
                   {jobLoading || matchingTemplate
@@ -1164,7 +1207,7 @@ const ManageServicePage: React.FC = () => {
               deliberately not passed: the values a service was started with live in the container's
               userData and come back on neither the job record nor the URL, so claiming a set here
               would be guesswork (TemplateSummary says as much instead). */}
-          {isTemplate && template && (
+          {isAppService && template && (
             <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
               <div className={styles.howToHead}>
                 <h3>{isBundleService ? 'Template' : 'Service'}</h3>
@@ -1229,7 +1272,7 @@ const ManageServicePage: React.FC = () => {
               <h3>How to use</h3>
               {/* The engine's own Swagger page is served by the engine, so it 503s for exactly as
                   long as the endpoint does — offering it while warming up is another dead link. */}
-              {!isTemplate && baseUrl && !isExpired && isReady ? (
+              {!isAppService && baseUrl && !isExpired && isReady ? (
                 <div className={styles.docsActions}>
                   <Button
                     color="accent1"
@@ -1257,7 +1300,7 @@ const ManageServicePage: React.FC = () => {
               ) : null}
             </div>
 
-            {isTemplate ? (
+            {isAppService ? (
               templateUiUrl && !isExpired ? (
                 <div className={styles.endpoints}>
                   <Card className={styles.endpoint} innerShadow="black" padding="xs" radius="lg" variant="glass">
@@ -1368,7 +1411,7 @@ const ManageServicePage: React.FC = () => {
                         posthog.capture('inference_service_consumed', {
                           serviceId: id,
                           kind: 'copy_base_url',
-                          templateId: undefined,
+                          templateId: template?.id,
                           branch,
                         })
                       }
@@ -1394,7 +1437,7 @@ const ManageServicePage: React.FC = () => {
                       posthog.capture('inference_service_consumed', {
                         serviceId: id,
                         kind: 'copy_curl',
-                        templateId: undefined,
+                        templateId: template?.id,
                         branch,
                       })
                     }

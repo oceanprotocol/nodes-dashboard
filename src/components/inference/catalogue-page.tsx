@@ -16,11 +16,12 @@ import { useRouter } from 'next/router';
 import { useEffect, useMemo } from 'react';
 
 /**
- * Both catalogue pages: /inference/services (bare apps) and /inference/templates (the same apps with
- * models pre-loaded — `kind: 'bundle'` on the wire). Picking an entry opens its details page
- * (template-details-page), where it is reviewed and launched.
+ * The catalogue pages: /inference/services (bare apps), /inference/templates (the same apps with
+ * models pre-loaded — `kind: 'bundle'` on the wire) and /inference/default-models (a fixed model on a
+ * serving app — `kind: 'curated'`). Picking an entry opens its details page (template-details-page),
+ * where it is reviewed and launched.
  *
- * The two pages differ only in which entries they list and what they're called, so that lives in
+ * The pages differ only in which entries they list and what they're called, so that lives in
  * `catalogue-config.tsx` and everything else is shared: one catalogue is fetched from the node
  * (useServiceTemplates) and one browser renders it.
  */

@@ -1,6 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { useP2P } from '@/contexts/P2PContext';
-import { INFERENCE_QUICKSTART_PACKAGES } from '@/data/inference-quickstart-packages';
 import { normalizeNodeUri } from '@/services/nodeService';
 import { InferencePackage } from '@/types/inference';
 import { isGpuRequirement } from '@/utils/env-resources';
@@ -163,12 +162,7 @@ const useDefaultModelPackages = (): DefaultModelPackages => {
     };
   }, [isReady, getServiceTemplates]);
 
-  return {
-    // Node-advertised templates first, then the curated static catalogue.
-    packages: [...packages, ...INFERENCE_QUICKSTART_PACKAGES],
-    loading,
-    error,
-  };
+  return { packages, loading, error };
 };
 
 export default useDefaultModelPackages;
