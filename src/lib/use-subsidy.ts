@@ -1,14 +1,21 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { groupLockCycles } from '@/lib/escrow-events';
 import {
+  capturePaymentAccepted,
+  capturePaymentFailed,
+  PaidStartContext,
+  PaymentReply,
+  safeParseReply,
+} from '@/lib/payment-analytics';
+import {
   buildSubsidyHistory,
   getCustomSubsidyAddresses,
-  getSubsidyJobTypeName,
   getUpfrontCost,
   isNodeSubsidized,
   loadSubsidyProgram,
   loadSubsidyUsage,
   quoteSubsidy,
+  resolveJobSubsidy,
   startWithSubsidy,
   SubsidyJobType,
   SubsidyProgram,
@@ -136,7 +143,7 @@ export const useAddCustomSubsidy = () => {
       queryClient.setQueryData(customProgramKey(address), program);
       rememberCustomSubsidy(account.address, address);
       await queryClient.invalidateQueries({ queryKey: customAddressesKey(account.address) });
-      posthog.capture('subsidy_custom_added');
+      posthog.capture('subsidy_custom_added', { address: address.toLowerCase() });
     },
     [account.address, queryClient]
   );
@@ -153,7 +160,7 @@ export const useRemoveCustomSubsidy = () => {
       }
       forgetCustomSubsidy(account.address, address);
       await queryClient.invalidateQueries({ queryKey: customAddressesKey(account.address) });
-      posthog.capture('subsidy_custom_removed');
+      posthog.capture('subsidy_custom_removed', { address: address.toLowerCase() });
     },
     [account.address, queryClient]
   );
@@ -261,20 +268,41 @@ export const useInvalidateSubsidyData = () => {
   );
 };
 
-type SubsidyStartContext = {
-  action: 'prolong' | 'start';
-  jobType: SubsidyJobType;
-  subsidyProviders: string[] | undefined;
-};
-
+/**
+ * Runs a paid start or prolong. It quotes the subsidy and passes the providers to `start` (`undefined` leaves the
+ * choice to the node, an empty list tells it to apply no subsidy). Once the node's reply is checked, it records the payment in PostHog (see payment-analytics).
+ * The result is returned as is, even when the reply isn't a job.
+ */
 export const useStartWithSubsidy = () => {
   const invalidateSubsidyData = useInvalidateSubsidyData();
   return useCallback(
-    async <T>(start: () => Promise<T>, { action, jobType, subsidyProviders }: SubsidyStartContext) => {
+    async <T>(
+      context: PaidStartContext,
+      start: (subsidyProviders: string[] | undefined) => Promise<T>,
+      parseReply: (result: unknown) => PaymentReply
+    ): Promise<T> => {
+      const subsidy = await resolveJobSubsidy({
+        cost: context.cost,
+        isOpfEligible: context.isOpfEligible,
+        jobType: context.jobType,
+        nodeAddress: context.nodeAddress,
+        payer: context.payer,
+      });
       try {
-        const result = await startWithSubsidy(start);
-        if (subsidyProviders?.length) {
-          posthog.capture('subsidy_applied', { action, jobType: getSubsidyJobTypeName(jobType) });
+        const result = await startWithSubsidy(async () => {
+          try {
+            return await start(subsidy.providers);
+          } catch (error) {
+            // Captured before startWithSubsidy swaps a shortfall revert for a readable message.
+            capturePaymentFailed(context, subsidy, error, 'node_call');
+            throw error;
+          }
+        });
+        const reply = safeParseReply(parseReply, result);
+        if (reply.valid) {
+          capturePaymentAccepted(context, subsidy, reply);
+        } else {
+          capturePaymentFailed(context, subsidy, new Error(reply.reason), 'invalid_reply');
         }
         return result;
       } finally {

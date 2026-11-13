@@ -13,7 +13,8 @@ import {
 } from '@/lib/compute-inputs';
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { generateJobName } from '@/lib/job-name';
-import { getJobSubsidyProviders, SubsidyJobType } from '@/lib/subsidy';
+import { parseComputeStartReply } from '@/lib/payment-analytics';
+import { SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useStartWithSubsidy } from '@/lib/use-subsidy';
 import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
@@ -323,33 +324,35 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
             outputBucketId: outputBucketId ?? undefined,
             resources,
           })
-        : await (async () => {
-            const subsidyProviders = await getJobSubsidyProviders({
+        : await startWithSubsidy(
+            {
+              action: 'start',
               cost: estimatedTotalCost ?? 0,
+              durationSeconds: selectedResources.maxJobDurationSeconds,
+              environmentId: selectedEnv.id,
               isOpfEligible: false,
               jobType: SubsidyJobType.COMPUTE,
               nodeAddress: selectedEnv.consumerAddress,
+              nodeId: nodeInfo?.id ?? selectedEnv.nodeId,
               payer: consumerAddress,
-            });
-            return startWithSubsidy(
-              () =>
-                startCompute({
-                  algorithm,
-                  authToken,
-                  chainId: CHAIN_ID,
-                  computeEnv: selectedEnv.id,
-                  datasets,
-                  maxJobDuration: selectedResources.maxJobDurationSeconds,
-                  metadata,
-                  nodeUri,
-                  outputBucketId: outputBucketId ?? undefined,
-                  resources,
-                  subsidyProviders,
-                  token: USDC.address,
-                }),
-              { action: 'start', jobType: SubsidyJobType.COMPUTE, subsidyProviders }
-            );
-          })();
+            },
+            (subsidyProviders) =>
+              startCompute({
+                algorithm,
+                authToken,
+                chainId: CHAIN_ID,
+                computeEnv: selectedEnv.id,
+                datasets,
+                maxJobDuration: selectedResources.maxJobDurationSeconds,
+                metadata,
+                nodeUri,
+                outputBucketId: outputBucketId ?? undefined,
+                resources,
+                subsidyProviders,
+                token: USDC.address,
+              }),
+            parseComputeStartReply
+          );
 
       return (Array.isArray(job) ? job[0] : job) as unknown as ComputeJob;
     },
@@ -370,6 +373,7 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
       jobName,
       mountedFiles,
       multiaddrsOrPeerId,
+      nodeInfo,
       outputBucketId,
       selectedEnv,
       selectedResources,
