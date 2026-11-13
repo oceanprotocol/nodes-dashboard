@@ -37,6 +37,9 @@ const CATALOGUE_TIMEOUT_MS = 15_000;
  */
 const TRANSPORT_TIMEOUT_MS = 6000;
 
+// The node the catalogue is fetched from over HTTP. `||` so an empty value also means the default node.
+const TEMPLATES_NODE_URL = process.env.NEXT_PUBLIC_TEMPLATES_NODE_URL || DEFAULT_NODE_HTTP_URL;
+
 /**
  * Run one non-final transport, capped and non-throwing: a miss is `null` so the ladder can fall
  * through without a try/catch per rung. Only the LAST rung is allowed to throw (that failure is the
@@ -135,7 +138,7 @@ export async function fetchTemplates(
       // every other node call in this flow there is no auth token or per-address nonce to burn, so a
       // failed rung costs only its own round trip.
       const httpTemplates = await tryCatalogueTransport('http', (attemptSignal) =>
-        getServiceTemplates(DEFAULT_NODE_HTTP_URL, CHAIN_ID, attemptSignal)
+        getServiceTemplates(TEMPLATES_NODE_URL, CHAIN_ID, attemptSignal)
       );
       // A libp2p round trip has no timeout of its own: an unreachable node/relay leaves the promise
       // pending forever. That used to cost nothing, but the manage page now holds Edit/Prolong until
