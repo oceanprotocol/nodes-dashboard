@@ -40,6 +40,8 @@ const TRANSPORT_TIMEOUT_MS = 6000;
 // The node the catalogue is fetched from over HTTP. `||` so an empty value also means the default node.
 const TEMPLATES_NODE_OVERRIDE = process.env.NEXT_PUBLIC_TEMPLATES_NODE_URL;
 const TEMPLATES_NODE_URL = TEMPLATES_NODE_OVERRIDE || DEFAULT_NODE_HTTP_URL;
+// With an override the HTTP rung is the only one (no P2P fallback), so it gets the full budget.
+const HTTP_TIMEOUT_MS = TEMPLATES_NODE_OVERRIDE ? CATALOGUE_TIMEOUT_MS : TRANSPORT_TIMEOUT_MS;
 
 /**
  * Run one non-final transport, capped and non-throwing: a miss is `null` so the ladder can fall
@@ -57,7 +59,7 @@ async function tryCatalogueTransport(
   attempt: (signal: AbortSignal) => Promise<ServiceTemplatePublic[]>
 ): Promise<AppTemplate[] | null> {
   try {
-    const result = await withTimeout(attempt, TRANSPORT_TIMEOUT_MS, `Service templates (${name})`);
+    const result = await withTimeout(attempt, HTTP_TIMEOUT_MS, `Service templates (${name})`);
     // A well-formed array IS the answer, empty included: a node that advertises no templates is a real
     // state, not a failed transport. Only a malformed response falls through — retrying a node that
     // answered "nothing" over a second transport just spends a round trip to be told the same thing,
