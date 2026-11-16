@@ -38,7 +38,8 @@ const CATALOGUE_TIMEOUT_MS = 15_000;
 const TRANSPORT_TIMEOUT_MS = 6000;
 
 // The node the catalogue is fetched from over HTTP. `||` so an empty value also means the default node.
-const TEMPLATES_NODE_URL = process.env.NEXT_PUBLIC_TEMPLATES_NODE_URL || DEFAULT_NODE_HTTP_URL;
+const TEMPLATES_NODE_OVERRIDE = process.env.NEXT_PUBLIC_TEMPLATES_NODE_URL;
+const TEMPLATES_NODE_URL = TEMPLATES_NODE_OVERRIDE || DEFAULT_NODE_HTTP_URL;
 
 /**
  * Run one non-final transport, capped and non-throwing: a miss is `null` so the ladder can fall
@@ -140,6 +141,11 @@ export async function fetchTemplates(
       const httpTemplates = await tryCatalogueTransport('http', (attemptSignal) =>
         getServiceTemplates(TEMPLATES_NODE_URL, CHAIN_ID, attemptSignal)
       );
+      // The P2P rung below reaches the DEFAULT node. With an override set that is a different node,
+      // so its catalogue must not stand in for the configured one: fail the fetch instead.
+      if (httpTemplates === null && TEMPLATES_NODE_OVERRIDE) {
+        throw new Error('Service templates: the configured templates node is unavailable');
+      }
       // A libp2p round trip has no timeout of its own: an unreachable node/relay leaves the promise
       // pending forever. That used to cost nothing, but the manage page now holds Edit/Prolong until
       // the match settles, so a hung dial would disable them indefinitely. Cap it and let the caller's
