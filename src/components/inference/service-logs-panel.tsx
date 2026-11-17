@@ -1,9 +1,12 @@
 import Button from '@/components/button/button';
-import { NodeUri } from '@/contexts/P2PContext';
+import DownloadServiceLogsButton from '@/components/inference/download-service-logs-button';
 import { useNodeTokensContext } from '@/context/node-tokens';
+import { NodeUri } from '@/contexts/P2PContext';
 import { ServiceLogViewStatus, useServiceLogs } from '@/hooks/use-service-logs';
+import { isServiceLogsRetentionEnded, SERVICE_LOGS_RETENTION_ENDED_NOTE } from '@/services/service-logs';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import StopIcon from '@mui/icons-material/Stop';
+import { ServiceStatusNumber } from '@oceanprotocol/lib';
 import cx from 'classnames';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './service-logs-panel.module.css';
@@ -24,6 +27,10 @@ interface ServiceLogsPanelProps {
   consumerAddress?: string;
   /** Start streaming only once true (e.g. after the user reveals the logs). */
   open: boolean;
+  /** The service's status per the page's poll: decides whether a download is the final log or a snapshot. */
+  serviceStatus?: ServiceStatusNumber;
+  /** Unix ms after which the node no longer holds this service's logs. Undefined when not known. */
+  logsRetentionEndsAt?: number;
 }
 
 const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
@@ -32,6 +39,8 @@ const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
   nodePeerId,
   consumerAddress,
   open,
+  serviceStatus,
+  logsRetentionEndsAt,
 }) => {
   const { getNodeToken, clearNodeToken } = useNodeTokensContext();
 
@@ -82,6 +91,7 @@ const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
   };
 
   const isLive = status === 'live' || status === 'reconnecting' || status === 'connecting';
+  const logsRetentionEnded = isServiceLogsRetentionEnded(logsRetentionEndsAt);
 
   return (
     <>
@@ -90,17 +100,29 @@ const ServiceLogsPanel: React.FC<ServiceLogsPanelProps> = ({
           <span className={styles.dot} />
           {STATUS_LABEL[status]}
         </span>
-        {/* 'idle' is the pre-effect first render — treat it as live so Resume doesn't flash for a frame. */}
-        {isLive || status === 'idle' ? (
-          <Button color="accent1" contentBefore={<StopIcon />} onClick={stop} size="sm" variant="outlined">
-            Stop
-          </Button>
-        ) : (
-          <Button color="accent1" contentBefore={<PlayArrowIcon />} onClick={resume} size="sm" variant="outlined">
-            Resume
-          </Button>
-        )}
+        <div className={styles.actions}>
+          <DownloadServiceLogsButton
+            nodePeerId={nodePeerId}
+            nodeUri={nodeUri}
+            retentionEndsAt={logsRetentionEndsAt}
+            serviceId={serviceId}
+            serviceStatus={serviceStatus}
+          />
+          {/* 'idle' is the pre-effect first render — treat it as live so Resume doesn't flash for a frame. */}
+          {isLive || status === 'idle' ? (
+            <Button color="accent1" contentBefore={<StopIcon />} onClick={stop} size="sm" variant="outlined">
+              Stop
+            </Button>
+          ) : (
+            <Button color="accent1" contentBefore={<PlayArrowIcon />} onClick={resume} size="sm" variant="outlined">
+              Resume
+            </Button>
+          )}
+        </div>
       </div>
+
+      {/* Say why Download is greyed out: a disabled button with no reason reads as a broken page. */}
+      {logsRetentionEnded && <div className="textSecondary">{SERVICE_LOGS_RETENTION_ENDED_NOTE}</div>}
 
       <pre className={styles.terminal} onScroll={onScroll} ref={scrollRef}>
         {lines.length === 0 && status !== 'error' ? (

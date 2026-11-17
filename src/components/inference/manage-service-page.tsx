@@ -34,6 +34,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
+import { serviceLogsRetentionEndsAt } from '@/services/service-logs';
 import {
   branchForAppType,
   isModelAppType,
@@ -712,6 +713,9 @@ const ManageServicePage: React.FC = () => {
   // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
   // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
+  // Until when the node keeps this service's logs (expiresAt + the environment's storageExpiry).
+  // Past it the logs panel disables its download instead of offering one that is bound to fail.
+  const logsRetentionEndsAt = serviceLogsRetentionEndsAt(job, environment);
   /**
    * An earlier extension payment the node still holds under this service's escrow id. The node takes
    * every payment for a service under that one id (see service-escrow-lock), so while it holds one,
@@ -1429,10 +1433,12 @@ const ManageServicePage: React.FC = () => {
             {logsOpen ? (
               <ServiceLogsPanel
                 consumerAddress={account.address ?? undefined}
+                logsRetentionEndsAt={logsRetentionEndsAt}
                 nodePeerId={nodePeerId}
                 nodeUri={nodeUri}
                 open={logsOpen}
                 serviceId={id}
+                serviceStatus={job?.status}
               />
             ) : (
               <div className="actionsGroupMdEnd">

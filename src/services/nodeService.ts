@@ -662,9 +662,31 @@ export async function getServiceLogs(
   signerOrAuthToken: SignerOrAuthTokenOrSignature,
   serviceId: string,
   since?: string,
-  { idleMs = 1500, maxMs = 15000 }: { idleMs?: number; maxMs?: number } = {}
+  {
+    idleMs = 1500,
+    maxMs = 15000,
+    signal,
+    throwOnError = false,
+  }: {
+    idleMs?: number;
+    maxMs?: number;
+    /** Stop collecting early (e.g. the caller unmounted). Resolves with whatever arrived so far. */
+    signal?: AbortSignal;
+    /**
+     * Rethrow a refused or failed request instead of resolving ''. For callers that must tell "the
+     * node has no logs" from "the request failed", and that want withNodeAuth to re-mint on a 401.
+     */
+    throwOnError?: boolean;
+  } = {}
 ): Promise<string> {
   const controller = new AbortController();
+  // A caller-driven cancel aborts the dial and the stream; the drain below then settles on its own.
+  const onExternalAbort = () => controller.abort();
+  if (signal?.aborted) {
+    controller.abort();
+  } else {
+    signal?.addEventListener('abort', onExternalAbort, { once: true });
+  }
   let stream;
   try {
     stream = await serviceStreamableLogsProvider().serviceGetStreamableLogs(
@@ -675,12 +697,17 @@ export async function getServiceLogs(
       controller.signal
     );
   } catch (error) {
+    signal?.removeEventListener('abort', onExternalAbort);
+    if (throwOnError) {
+      throw error;
+    }
     // The P2P command can time out (e.g. an old node still streaming with follow:true, or no
     // response). Surface nothing rather than crashing the panel — the caller shows a friendly state.
     console.warn('serviceGetStreamableLogs failed:', error);
     return '';
   }
   if (!stream) {
+    signal?.removeEventListener('abort', onExternalAbort);
     return '';
   }
   const toBytes = serviceLogChunkToBytes;
@@ -705,6 +732,12 @@ export async function getServiceLogs(
     };
     // Hard ceiling — always fires even if no chunk ever arrives (empty/hung stream).
     const maxTimer = setTimeout(finish, maxMs);
+    // Cancelled by the caller: settle now instead of waiting out the idle window or the ceiling.
+    if (controller.signal.aborted) {
+      finish();
+    } else {
+      controller.signal.addEventListener('abort', finish, { once: true });
+    }
 
     (async () => {
       try {
@@ -728,6 +761,7 @@ export async function getServiceLogs(
       }
     })();
   });
+  signal?.removeEventListener('abort', onExternalAbort);
 
   const total = parts.reduce((sum, p) => sum + p.length, 0);
   const merged = new Uint8Array(total);
