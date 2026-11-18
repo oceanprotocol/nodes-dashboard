@@ -94,8 +94,8 @@ export function isServiceInFlight(status: ServiceStatusNumber | undefined, statu
 }
 
 /**
- * True once a service reached a final state (stopped, expired, errored, or an image pull/build
- * failure): nothing is left running, so whatever logs the node holds for it are final.
+ * Tells a final log from a snapshot. In a final state (stopped, expired, errored, or a failed image
+ * pull/build) nothing is left running, so the node's logs for the service can no longer grow.
  */
 export function isServiceTerminal(status: ServiceStatusNumber | undefined): boolean {
   return status !== undefined && (FAILED_STATUSES.has(status) || DONE_STATUSES.has(status));

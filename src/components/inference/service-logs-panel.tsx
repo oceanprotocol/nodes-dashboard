@@ -27,9 +27,9 @@ interface ServiceLogsPanelProps {
   consumerAddress?: string;
   /** Start streaming only once true (e.g. after the user reveals the logs). */
   open: boolean;
-  /** The service's status per the page's poll: decides whether a download is the final log or a snapshot. */
+  /** Passed to Download so it can tell a final log from a snapshot. */
   serviceStatus?: ServiceStatusNumber;
-  /** Unix ms after which the node no longer holds this service's logs. Undefined when not known. */
+  /** Unix ms. Lets the panel explain a disabled Download once the node has deleted the logs. */
   logsRetentionEndsAt?: number;
 }
 

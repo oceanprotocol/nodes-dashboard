@@ -670,17 +670,22 @@ export async function getServiceLogs(
   }: {
     idleMs?: number;
     maxMs?: number;
-    /** Stop collecting early (e.g. the caller unmounted). Resolves with whatever arrived so far. */
+    /**
+     * Lets a caller that goes away (e.g. unmounts) end the read now rather than after `maxMs`.
+     * Resolves with whatever arrived so far.
+     */
     signal?: AbortSignal;
     /**
-     * Rethrow a refused or failed request instead of resolving ''. For callers that must tell "the
-     * node has no logs" from "the request failed", and that want withNodeAuth to re-mint on a 401.
+     * Off by default, because the live panel would rather show an empty log than crash. A download
+     * turns it on: it must tell "the node has no logs" from "the request failed", and withNodeAuth
+     * can only re-mint the token on a 401 that reaches it.
      */
     throwOnError?: boolean;
   } = {}
 ): Promise<string> {
   const controller = new AbortController();
-  // A caller-driven cancel aborts the dial and the stream; the drain below then settles on its own.
+  // Forwarded into our own controller rather than handed down as is: that controller is the one the
+  // dial, the stream and the drain below already listen to.
   const onExternalAbort = () => controller.abort();
   if (signal?.aborted) {
     controller.abort();
@@ -732,7 +737,7 @@ export async function getServiceLogs(
     };
     // Hard ceiling — always fires even if no chunk ever arrives (empty/hung stream).
     const maxTimer = setTimeout(finish, maxMs);
-    // Cancelled by the caller: settle now instead of waiting out the idle window or the ceiling.
+    // Otherwise a cancelled read would still wait out the idle window or the ceiling.
     if (controller.signal.aborted) {
       finish();
     } else {

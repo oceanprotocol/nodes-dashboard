@@ -18,20 +18,23 @@ import posthog from 'posthog-js';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
-// The node streams logs with `follow: true`, so a running service's stream never ends on its own.
-// The log is taken as complete once the stream has been quiet for this long…
+// The node follows a running service's log, so its stream never ends on its own: a pause this long
+// is the only sign that the history has all arrived.
 const IDLE_MS = 2000;
-// …or, for a container that never goes quiet, after this long. Longer than the panel's own
-// one-off fetch (15s) so a long history has time to arrive in full.
+// For a container that never goes quiet. Twice the panel's one-off fetch (15s), because a download
+// is meant to hold the whole history, not just a recent page of it.
 const MAX_MS = 30000;
 
 type DownloadServiceLogsButtonProps = {
   nodePeerId?: string;
   nodeUri: NodeUri | null;
-  /** Unix ms after which the node no longer holds this service's logs. Undefined when not known. */
+  /**
+   * Unix ms. Past it the button is disabled, since the node has deleted the logs by then. Undefined
+   * (unknown) keeps it enabled, so a missing field never blocks logs the node still has.
+   */
   retentionEndsAt?: number;
   serviceId: string;
-  /** The service's status per the page's poll. Undefined until the first poll lands. */
+  /** Tells a final log from a snapshot. Undefined until the page's first poll lands. */
   serviceStatus?: ServiceStatusNumber;
 };
 
@@ -47,12 +50,10 @@ function saveTextFile(filename: string, text: string) {
 }
 
 /**
- * Saves a service's container logs as a .txt file: the final log of a finished service, or a
- * timestamped snapshot of one that is still running.
- *
- * The log comes from the node in a request of its own, not from the panel's buffer. That buffer keeps
- * only the last few thousand lines, and a separate request leaves the live tail untouched. It reuses
- * the node's cached auth token (withNodeAuth), so no second token is minted.
+ * Fetches the log from the node in a request of its own rather than saving the panel's buffer: that
+ * buffer keeps only the last few thousand lines, and a separate request leaves the live tail running.
+ * Goes through withNodeAuth so the cached node token is reused: minting another would mean another
+ * signature prompt.
  */
 const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
   nodePeerId,
@@ -65,8 +66,8 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
   const { isReady } = useP2P();
 
   const [downloading, setDownloading] = useState(false);
-  // Doubles as the in-flight guard: state lands a render late, so two clicks in the same frame
-  // would both get past a check on `downloading`.
+  // The in-flight guard lives in a ref, not in `downloading`: state lands a render late, so two
+  // clicks in the same frame would both get past a check on it.
   const abortRef = useRef<AbortController | null>(null);
 
   // Leaving the page mid-download must not save a file (or raise a toast) on whatever page is next.
@@ -90,7 +91,7 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
     abortRef.current = abortController;
     setDownloading(true);
 
-    // A service that hasn't finished keeps logging, so its file is a point-in-time snapshot.
+    // A service that hasn't finished keeps logging, so its file is only a snapshot and is named as one.
     const isSnapshot = !isServiceTerminal(serviceStatus);
     const noLogsMessage = isSnapshot
       ? 'This service has not produced any logs yet.'
@@ -121,8 +122,8 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
         return;
       }
       console.error('Failed to download service logs:', e);
-      // The node answers 404 when it has no container to read logs from. That is "nothing to
-      // download", not a broken request.
+      // A 404 means the node has neither a container nor saved logs for this service: there is
+      // nothing to download, which deserves the no-logs message rather than an error.
       const { httpStatus, status } = (e ?? {}) as { httpStatus?: number; status?: number };
       toast.error(
         (httpStatus ?? status) === 404

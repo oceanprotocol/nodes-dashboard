@@ -713,8 +713,8 @@ const ManageServicePage: React.FC = () => {
   // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
   // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
-  // Until when the node keeps this service's logs (expiresAt + the environment's storageExpiry).
-  // Past it the logs panel disables its download instead of offering one that is bound to fail.
+  // Lets the logs panel disable Download once the node has deleted the logs, instead of offering a
+  // download that is bound to fail.
   const logsRetentionEndsAt = serviceLogsRetentionEndsAt(job, environment);
   /**
    * An earlier extension payment the node still holds under this service's escrow id. The node takes
