@@ -58,6 +58,7 @@ import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
 import { safeHttpUrl } from '@/utils/safe-url';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import { shellQuote } from '@/utils/shell';
 import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -105,8 +106,8 @@ function serviceBaseUrl(job: ServiceJob | null): string | null {
   }
   const port = enginePort(job.dockerCmd ? detectEngine(job.dockerCmd) : 'vllm');
   const match = job.endpoints.find((ep) => ep.containerPort === port);
-  // Endpoint urls are node-supplied. Only plain http(s) may feed the docs link, the copy buttons and
-  // the code snippets built from this; anything else reads as "no endpoint" downstream.
+  // Checked once here rather than at each use because the node controls this URL and the docs link,
+  // copy buttons and curl snippet are all built from it.
   return safeHttpUrl((match ?? job.endpoints[0]).url) ?? null;
 }
 
@@ -659,7 +660,7 @@ const ManageServicePage: React.FC = () => {
     }
     const port = templatePrimaryPort(template);
     const match = job.endpoints.find((ep) => ep.containerPort === port);
-    // Node-supplied; only plain http(s) may become the Open link or the copy value (see serviceBaseUrl).
+    // Same reason as serviceBaseUrl: the node controls this URL, and it becomes the Open link.
     const url = safeHttpUrl((match ?? job.endpoints[0])?.url);
     if (!url) {
       return null;
@@ -1064,12 +1065,15 @@ const ManageServicePage: React.FC = () => {
     router.push({ pathname: '/inference/custom-models/payment', query });
   };
 
-  // Plain-text version for the copy button — the on-screen block is syntax-highlighted JSX.
-  const chatUrl = baseUrl ? `${baseUrl}/v1/chat/completions` : '$BASE/v1/chat/completions';
+  // Users paste this into a terminal, and the endpoint URL and model name come from the node or the page
+  // URL, so both are shell-quoted: `safeHttpUrl` checks the scheme, not shell metacharacters. `$BASE`
+  // stays unquoted so the user's own shell expands it.
+  const chatUrl = baseUrl ? shellQuote(`${baseUrl}/v1/chat/completions`) : '$BASE/v1/chat/completions';
+  const chatBody = `{ "model": ${JSON.stringify(primaryModelName)}, "messages": [ { "role": "user", "content": "Hello!" } ] }`;
   const curlSnippet = `curl ${chatUrl} \\
   -H "Authorization: Bearer <password>" \\
   -H "Content-Type: application/json" \\
-  -d '{ "model": "${primaryModelName}", "messages": [ { "role": "user", "content": "Hello!" } ] }'`;
+  -d ${shellQuote(chatBody)}`;
 
   return (
     <Container className="pageRoot">

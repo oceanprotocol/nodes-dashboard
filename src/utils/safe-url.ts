@@ -1,11 +1,10 @@
 /**
- * A url only survives this if it parses and is http(s) — everything else (`javascript:`, `data:`,
- * custom protocol handlers, relative junk) comes back undefined so it never reaches an `href`, a
- * copy button or a code snippet. Parsing rather than prefix matching, so leading whitespace, odd
- * casing and embedded tabs can't smuggle a scheme through.
+ * For URLs that come from nodes, which are untrusted: only http(s) is safe to put in an `href` or offer
+ * for copying. Parsed with `URL` rather than prefix-matched because browsers ignore leading whitespace,
+ * case and embedded tabs in a scheme, so a string check can be bypassed.
  *
- * Returns the input string, not `url.href`: `href` appends a trailing slash to a bare origin, and
- * callers join paths onto the result (`${baseUrl}/docs`, `/v1`, `/mcp`).
+ * Returns the input, not `url.href`, because `href` adds a trailing slash to a bare origin and callers
+ * append paths (`${baseUrl}/docs`). The result is not safe for a shell; quote it with `shellQuote`.
  */
 export const safeHttpUrl = (raw?: string | null): string | undefined => {
   if (!raw) {

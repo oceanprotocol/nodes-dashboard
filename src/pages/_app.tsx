@@ -85,8 +85,8 @@ const muiTheme = createTheme({
   },
 });
 
-/* The CSP nonce minted in src/proxy.ts. The two tags below load client-side, after hydration, so
-   they get no nonce from the server render and must carry it themselves. */
+/* The tags below need the nonce from src/proxy.ts passed in because next/script inserts them on the
+   client after hydration, so Next's server-side nonce stamping never sees them. */
 type DashboardAppProps = AppProps & { nonce?: string };
 
 export default function DashboardApp({ Component, pageProps, nonce }: DashboardAppProps) {
@@ -175,8 +175,8 @@ export default function DashboardApp({ Component, pageProps, nonce }: DashboardA
 
 DashboardApp.getInitialProps = async (context: AppContext): Promise<AppInitialProps & { nonce?: string }> => {
   const appProps = await App.getInitialProps(context);
-  // Only set on the server render; a client-side navigation has no request, and the tags above are
-  // already in the document by then.
+  // Undefined on client-side navigation is fine because the tags above were already inserted on the
+  // first, server-rendered page.
   const nonce = context.ctx.req?.headers['x-nonce'];
   return { ...appProps, nonce: typeof nonce === 'string' ? nonce : undefined };
 };

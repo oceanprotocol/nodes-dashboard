@@ -1,11 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Next's default body limit is 1mb. A full batch of 100 calls is a few kilobytes, so 256kb leaves
-// room while bounding what one request can make this route buffer and forward upstream.
+// 256kb instead of Next's 1mb default because a full batch from the app is a few kilobytes, and
+// whatever this route accepts is forwarded to the metered upstream.
 export const config = { api: { bodyParser: { sizeLimit: '256kb' } } };
 
-// ethers' JsonRpcProvider never sends more than its default batchMaxCount of 100 calls in one
-// request, so a bigger batch cannot come from the app.
+// 100 because that is ethers' default batchMaxCount, so a larger batch never comes from the app.
 const MAX_BATCH = 100;
 
 const ALLOWED_METHODS = new Set([
@@ -27,15 +26,14 @@ const ALLOWED_METHODS = new Set([
   'net_version',
 ]);
 
-// eth_call and eth_estimateGas take an optional third param, a state-override set that runs the
-// call against fabricated balances or code. Nothing in the app sends one (ethers' `provider.call`
-// is only ever given a transaction), so it is extra surface — heavier upstream work, odd error
-// paths — and is rejected.
+// Capped at two because the optional third param (state overrides) makes a call much heavier
+// upstream, and the app never sends one.
 const MAX_PARAMS: Partial<Record<string, number>> = { eth_call: 2, eth_estimateGas: 2 };
 
 type RpcRequest = { method: string; params?: unknown[] };
 
-/** A JSON-RPC request object: `method` is a string and `params`, when present, is an array. */
+// The body is client-supplied, so each element's shape is checked before its fields are read; a
+// malformed element should get a 400, not throw.
 function isRpcRequest(value: unknown): value is RpcRequest {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return false;

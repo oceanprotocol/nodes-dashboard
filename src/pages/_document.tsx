@@ -30,8 +30,8 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
-/* `nonce` is minted per request in src/proxy.ts. Next's own <Head> and <NextScript> only stamp the
-   scripts they render with the `nonce` prop they are given, so it is passed down explicitly. */
+/* `nonce` is passed down explicitly because Next's <Head> and <NextScript> only stamp their scripts
+   with a nonce given as a prop; they don't read the one src/proxy.ts sets on the request. */
 export default function Document({ nonce }: DocumentProps) {
   return (
     <Html lang="en">

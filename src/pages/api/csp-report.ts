@@ -1,10 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Browsers POST Content-Security-Policy violation reports here (the `report-uri` in src/proxy.ts).
-// A report is a few hundred bytes; 16kb bounds what anyone can make this route buffer.
+// 16kb because a real report is a few hundred bytes and anyone can POST to this route.
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
 
-// Longest any one field gets in the log line, so a report cannot flood it.
+// Reports are client-supplied, so each field is capped to keep one report from flooding the logs.
 const MAX_FIELD = 200;
 
 type CspReport = Partial<
@@ -18,10 +17,25 @@ function field(value: unknown): string {
   return (typeof value === 'string' || typeof value === 'number' ? String(value) : '-').slice(0, MAX_FIELD);
 }
 
+// Query strings and fragments are dropped because OAuth redirects carry codes and state there, and these
+// lines end up in the deployment logs. Values that aren't URLs (`inline`, `eval`) fall through unchanged.
+function urlField(value: unknown): string {
+  if (typeof value !== 'string') {
+    return field(value);
+  }
+  try {
+    const url = new URL(value);
+    url.search = '';
+    url.hash = '';
+    return field(url.toString());
+  } catch {
+    return field(value.split(/[?#]/)[0]);
+  }
+}
+
 /**
- * Logs one line per violation so the Report-Only period can be read from the deployment logs:
- * which directive, what it blocked, on which page. Nothing is stored and nothing is answered
- * beyond the status, so there is nothing here for a client to extract.
+ * Exists so the Report-Only rollout of the policy in src/proxy.ts can be reviewed from the deployment
+ * logs before CSP_MODE is switched to `enforce`.
  */
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -29,8 +43,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).end();
   }
 
-  // Browsers send `application/csp-report`, which Next's body parser leaves as a string; a JSON
-  // content type arrives already parsed.
+  // Parsed by hand because Next's body parser doesn't recognise `application/csp-report`, the type
+  // browsers send, and leaves the body as a string.
   let body: unknown = req.body;
   if (typeof body === 'string') {
     try {
@@ -46,7 +60,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const r = report as CspReport;
   console.warn(
-    `[csp-report] ${field(r['effective-directive'] ?? r['violated-directive'])} blocked ${field(r['blocked-uri'])} on ${field(r['document-uri'])} (${field(r['source-file'])}:${field(r['line-number'])})`
+    `[csp-report] ${field(r['effective-directive'] ?? r['violated-directive'])} blocked ${urlField(r['blocked-uri'])} on ${urlField(r['document-uri'])} (${urlField(r['source-file'])}:${field(r['line-number'])})`
   );
   return res.status(204).end();
 }

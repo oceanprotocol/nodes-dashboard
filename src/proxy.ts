@@ -1,64 +1,60 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Per-request Content Security Policy with a script nonce (Next 16 runs this file as the proxy, the
- * renamed middleware).
+ * The policy is built here rather than in next.config.mjs because its nonce has to change on every
+ * response.
  *
- * `CSP_MODE` picks the response header: `report-only` (the default) sends
- * `Content-Security-Policy-Report-Only`, so violations reach /api/csp-report without blocking
- * anything; `enforce` sends `Content-Security-Policy`; `off` sends neither. Flip to `enforce` only
- * after a clean Report-Only period.
+ * `CSP_MODE` defaults to `report-only` because the app loads many third-party SDKs and has no test
+ * suite, so violations are collected at /api/csp-report before anything is blocked. `off` exists as
+ * a quick way out if the policy breaks a flow in production.
  *
- * The nonce travels on two request headers: Next's Pages renderer reads it from
- * `content-security-policy` to stamp its own scripts, and `x-nonce` is for _document/_app, which
- * stamp the scripts they render themselves.
+ * The nonce is set on two request headers because Next's Pages renderer only reads it out of
+ * `content-security-policy`, while _document and _app need it as a plain value (`x-nonce`).
  *
- * The headers that need no nonce (frame-ancestors, nosniff, HSTS, …) are set for every response in
- * next.config.mjs. A header set here replaces a same-named one from there, so the enforced policy
- * repeats the static CSP directives rather than relying on both headers being present.
+ * The policy repeats the static directives from next.config.mjs because, in `enforce` mode, a header
+ * set here replaces the same-named one from there.
  */
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
-// What the app embeds in an <iframe>. Script hosts are deliberately absent: 'strict-dynamic'
-// extends trust from the nonced scripts to whatever they load (Cookiebot's unblocked tags, gtag,
-// PostHog's recorder, Turnstile's api.js), and `connect-src https:` has to stay open because nodes
-// are arbitrary operator hosts.
+// Frame hosts must be listed one by one, but script hosts need not be: 'strict-dynamic' lets the
+// nonced scripts load their own dependencies, and browsers that support it ignore script host lists.
+// Each entry names the feature that needs it, so an unused one can be removed when that feature goes.
 const FRAME_SRC = [
-  // BotID's challenge is served from this origin (a rewrite in next.config.mjs).
+  // BotID's challenge, which next.config.mjs rewrites onto this origin.
   "'self'",
-  // Privy embedded-wallet iframe.
+  // Privy's embedded wallet.
   'https://auth.privy.io',
-  // Cloudflare Turnstile, loaded by Privy's login modal.
+  // Cloudflare Turnstile, shown by Privy's login modal.
   'https://challenges.cloudflare.com',
-  // Alchemy signer (Turnkey) iframes, mounted by @privy-io/alchemy-migration for migrated accounts.
+  // Alchemy signer (Turnkey), mounted by @privy-io/alchemy-migration for migrated accounts.
   'https://auth.turnkey.com',
   'https://export.turnkey.com',
-  // WalletConnect Verify, bundled through @account-kit/react.
+  // WalletConnect Verify, pulled in through @account-kit/react.
   'https://verify.walletconnect.com',
   'https://verify.walletconnect.org',
   // Cookiebot consent sharing.
   'https://consentcdn.cookiebot.com',
-  // Ramp top-up widget: the SDK's default host, and the demo host used outside production.
+  // Ramp top-up: the SDK's default host, plus the demo host used outside production.
   'https://app.rampnetwork.com',
   'https://app.demo.rampnetwork.com',
-  // GitBook docs assistant: `${siteURL}~gitbook/embed`.
+  // GitBook docs assistant, which frames `${siteURL}~gitbook/embed`.
   'https://docs.oncompute.ai',
-  // Google Ads conversion tag (gtag) iframes.
+  // Google Ads conversion tag.
   'https://td.doubleclick.net',
 ];
 
 function buildPolicy(nonce: string): string {
   return [
     "default-src 'self'",
-    // 'unsafe-eval' only in dev, for source maps and React Refresh.
+    // 'unsafe-eval' only in dev, because source maps and React Refresh need it.
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${IS_DEV ? " 'unsafe-eval'" : ''}`,
-    // MUI/Emotion inject style tags and components use inline style attributes.
+    // 'unsafe-inline' because MUI/Emotion inject style tags and components set inline style attributes.
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "media-src 'self' blob: data:",
-    // Nodes are arbitrary operator hosts, so this cannot be a host list. Dev also talks plain http/ws.
+    // Not a host list because nodes run on arbitrary operator hosts. Dev adds plain http/ws for local nodes.
     `connect-src 'self' https: wss:${IS_DEV ? ' http: ws:' : ''}`,
     `frame-src ${FRAME_SRC.join(' ')}`,
     "worker-src 'self' blob:",
@@ -94,8 +90,8 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Pages only. Skipped: API routes, Next's assets and data fetches, the service worker, BotID's
-  // challenge/proxy paths (rewritten in next.config.mjs) and anything with a file extension.
+  // Only HTML pages run scripts that need the nonce, so everything else is skipped to avoid running the
+  // proxy on every asset. BotID's paths are skipped because it sets its own headers there.
   matcher: [
     '/((?!api/|_next/static|_next/image|_next/data|sw\\.js$|149e9513-01fa-4fb0-aad4-566afd725d1b/|.*\\.[a-zA-Z0-9]+$).*)',
   ],

@@ -69,8 +69,8 @@ const nextConfig = {
         headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }],
       },
       {
-        // Enforced on every response. The nonce-based policy (Report-Only until CSP_MODE=enforce)
-        // lives in src/proxy.ts; this one carries only what needs no nonce and no vendor list.
+        // Kept apart from the nonce policy in src/proxy.ts because none of these can break a
+        // third-party script, so they can be enforced now while that policy is still Report-Only.
         source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
@@ -78,7 +78,8 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
-          // Deliberately narrow: Ramp's KYC needs the camera and Ledger needs USB/HID.
+          // Turns off only features the app never uses; camera and USB/HID stay allowed because Ramp's
+          // KYC and Ledger need them.
           { key: 'Permissions-Policy', value: 'geolocation=(), browsing-topics=()' },
         ],
       },
