@@ -480,7 +480,12 @@ const ConfigPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) => 
 
           {submitError && <div className="textAccent1">{submitError}</div>}
 
-          <InferenceNavigation nextButtonHtmlType="submit" onPrev={goToPrevStep} showNext />
+          <InferenceNavigation
+            nextButtonHtmlType="submit"
+            onPrev={goToPrevStep}
+            showNext
+            showSubsidy={branch === 'template'}
+          />
         </form>
       )}
     </Container>

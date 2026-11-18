@@ -501,6 +501,7 @@ const TemplateDetailsPage: React.FC<{ catalogue: CatalogueConfig }> = ({ catalog
             durationSeconds={durationSeconds}
             onAdvanced={goToAdvanced}
             onDurationChange={setDurationSeconds}
+            showSubsidy={isBundle(template)}
             quickStart={quickStart}
           />
         }

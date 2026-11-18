@@ -1398,6 +1398,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                     environment={environment ?? selectedEnv.environment}
                     gpuSelection={gpuSelection}
                     gpuRequests={gpuPlan?.requests}
+                    showSubsidy={isOpfEligible}
                     sizing={sizing}
                     nodeInfo={selectedEnv.nodeInfo}
                   />
