@@ -28,6 +28,7 @@ type InferenceNavigationProps = {
   nextLoading?: boolean;
   /** Remove a model from the selection panel — model cards stay read-only when not provided. */
   onRemoveModel?: (model: HuggingFaceModel) => void;
+  showSubsidy?: boolean;
 };
 
 const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
@@ -41,6 +42,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
   nextDisabled = false,
   nextLoading = false,
   onRemoveModel,
+  showSubsidy = false,
 }) => {
   const [selectionOpen, setSelectionOpen] = useState(false);
   const { selectedModels, selectedEnv, jobDurationSeconds, selectedTemplate, templateEnvValues } =
@@ -101,6 +103,7 @@ const InferenceNavigation: React.FC<InferenceNavigationProps> = ({
                     gpuRequests={selectedEnv.gpuPlan?.requests}
                     nodeInfo={selectedEnv.nodeInfo}
                     selected={false}
+                    showSubsidy={showSubsidy}
                     // Without this the summary re-derives a proportional slice and disagrees with the
                     // step it summarizes: a quick-start package's pinned amounts, or the `exact`
                     // resources a running service already booked on an edit re-entry.

@@ -5,7 +5,6 @@ import Checkbox from '@/components/checkbox/checkbox';
 import HardwareLabel from '@/components/hardware-label/hardware-label';
 import useEnvResources from '@/components/hooks/use-env-resources';
 import ProgressBar from '@/components/progress-bar/progress-bar';
-import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
 import { USDC } from '@/constants/tokens';
 import { useRunJobContext } from '@/context/run-job-context';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -641,7 +640,6 @@ const EnvironmentCard: React.FC<EnvironmentCardProps> = ({
               </Button>
               {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
             </span>
-            <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
           </div>
           {nodeInfo.latestBenchmarkResults ? (
             <BenchmarkSummary

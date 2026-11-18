@@ -619,6 +619,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                         durationSeconds={jobDurationSeconds}
                         environment={env}
                         initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+                        showSubsidy={branch === 'template'}
                         sizing={selectedEnv?.sizing}
                         selected={isPriorSelection}
                         nodeInfo={node}

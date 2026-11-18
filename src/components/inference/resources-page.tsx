@@ -204,6 +204,7 @@ const ResourcesPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) 
                     nextLabel="Skip"
                     onNext={selectedEnv ? () => goToNextStep() : undefined}
                     onPrev={goToPrevStep}
+                    showSubsidy={branch === 'template'}
                   />
                 </>
               )
