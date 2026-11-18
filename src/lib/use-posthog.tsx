@@ -1,5 +1,6 @@
 'use client';
 
+import { CHAIN_ID } from '@/constants/chains';
 import posthog from 'posthog-js';
 import { PostHogProvider } from 'posthog-js/react';
 import { useEffect } from 'react';
@@ -50,6 +51,9 @@ export function PHProvider({ children }: { children: React.ReactNode }) {
           defaults: '2026-01-30',
           capture_exceptions: true,
           enable_heatmaps: true,
+          // Every environment and the VS Code extension share this project, so tag each event with its chain.
+          loaded: (instance) =>
+            instance.register({ appEnv: process.env.NEXT_PUBLIC_APP_ENV || 'development', chainId: CHAIN_ID }),
         });
       }
     }

@@ -3,10 +3,13 @@ import { InferenceFlowType } from '@/types/inference';
 
 export type InferenceStep = 'model' | 'template' | 'resources' | 'config' | 'payment';
 
-/** Extra shape of the Template flow, which covers both catalogues: Services and Templates. */
+/** The first step's label of the Template flow: the kind of catalogue the pick came from. */
+export type TemplateKindLabel = 'Service' | 'Template' | 'Model';
+
+/** Extra shape of the Template flow, which covers three catalogues: Services, Templates and Curated models. */
 export type TemplateStepOptions = {
   /** Which catalogue the pick came from, for the first step's label. */
-  kindLabel?: 'Service' | 'Template';
+  kindLabel?: TemplateKindLabel;
   /**
    * A fresh launch must stop at Config before payment, for either of the two reasons that page
    * exists: the template declares a `required` env var (without it the container starts and fails —

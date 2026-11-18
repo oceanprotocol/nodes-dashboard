@@ -3,7 +3,7 @@ import { DEFAULT_NODE_HTTP_URL, DEFAULT_NODE_URI } from '@/constants/default-nod
 import { NodeUri } from '@/contexts/P2PContext';
 import { withTimeout } from '@/lib/with-timeout';
 import { isModelAppType, isTemplateAppType, readServiceMetadata } from '@/services/service-metadata';
-import { AppBundle, AppTemplate, isBundle, isService } from '@/types/templates';
+import { AppBundle, AppTemplate, isBundle, isCurated, isService } from '@/types/templates';
 import { ComputeJobMetadata, ServiceTemplatePublic } from '@oceanprotocol/lib';
 
 /**
@@ -37,6 +37,12 @@ const CATALOGUE_TIMEOUT_MS = 15_000;
  */
 const TRANSPORT_TIMEOUT_MS = 6000;
 
+// The node the catalogue is fetched from over HTTP. `||` so an empty value also means the default node.
+const TEMPLATES_NODE_OVERRIDE = process.env.NEXT_PUBLIC_TEMPLATES_NODE_URL;
+const TEMPLATES_NODE_URL = TEMPLATES_NODE_OVERRIDE || DEFAULT_NODE_HTTP_URL;
+// With an override the HTTP rung is the only one (no P2P fallback), so it gets the full budget.
+const HTTP_TIMEOUT_MS = TEMPLATES_NODE_OVERRIDE ? CATALOGUE_TIMEOUT_MS : TRANSPORT_TIMEOUT_MS;
+
 /**
  * Run one non-final transport, capped and non-throwing: a miss is `null` so the ladder can fall
  * through without a try/catch per rung. Only the LAST rung is allowed to throw (that failure is the
@@ -53,7 +59,7 @@ async function tryCatalogueTransport(
   attempt: (signal: AbortSignal) => Promise<ServiceTemplatePublic[]>
 ): Promise<AppTemplate[] | null> {
   try {
-    const result = await withTimeout(attempt, TRANSPORT_TIMEOUT_MS, `Service templates (${name})`);
+    const result = await withTimeout(attempt, HTTP_TIMEOUT_MS, `Service templates (${name})`);
     // A well-formed array IS the answer, empty included: a node that advertises no templates is a real
     // state, not a failed transport. Only a malformed response falls through — retrying a node that
     // answered "nothing" over a second transport just spends a round trip to be told the same thing,
@@ -135,8 +141,13 @@ export async function fetchTemplates(
       // every other node call in this flow there is no auth token or per-address nonce to burn, so a
       // failed rung costs only its own round trip.
       const httpTemplates = await tryCatalogueTransport('http', (attemptSignal) =>
-        getServiceTemplates(DEFAULT_NODE_HTTP_URL, CHAIN_ID, attemptSignal)
+        getServiceTemplates(TEMPLATES_NODE_URL, CHAIN_ID, attemptSignal)
       );
+      // The P2P rung below reaches the DEFAULT node. With an override set that is a different node,
+      // so its catalogue must not stand in for the configured one: fail the fetch instead.
+      if (httpTemplates === null && TEMPLATES_NODE_OVERRIDE) {
+        throw new Error('Service templates: the configured templates node is unavailable');
+      }
       // A libp2p round trip has no timeout of its own: an unreachable node/relay leaves the promise
       // pending forever. That used to cost nothing, but the manage page now holds Edit/Prolong until
       // the match settles, so a hung dial would disable them indefinitely. Cap it and let the caller's
@@ -315,7 +326,12 @@ export function selectServices(templates: AppTemplate[]): AppTemplate[] {
   return templates.filter(isService);
 }
 
-/** The bundles of a catalogue. */
+/** The bundles of a catalogue. Curated models have their own page, so they are left out here. */
 export function selectBundles(templates: AppTemplate[]): AppBundle[] {
-  return templates.filter(isBundle);
+  return templates.filter(isBundle).filter((tpl) => !isCurated(tpl));
+}
+
+/** The curated models of a catalogue. */
+export function selectCurated(templates: AppTemplate[]): AppBundle[] {
+  return templates.filter(isCurated);
 }

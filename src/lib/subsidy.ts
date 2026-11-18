@@ -58,10 +58,25 @@ export type SubsidyUsage = {
   userAllowed: boolean;
 };
 
+/**
+ * Which program a provider belongs to. Set by program membership (`subsidyKind()`), never by percentage: the ON
+ * one-time credit and discount providers are both deployed at 100%.
+ */
+export type SubsidyLineKind = 'custom' | 'discount' | 'one_time';
+
+export type SubsidyQuoteLine = {
+  address: string;
+  amount: number;
+  kind: SubsidyLineKind;
+  payment: SubsidyPayment;
+};
+
 export type SubsidyQuote = {
   /** Custom providers that cover part of the job, in lock order. */
   custom: { address: string; amount: number; payment: SubsidyPayment }[];
   discount: number;
+  /** Every provider that covers part of the job, in lock order (same order as `providers`). */
+  lines: SubsidyQuoteLine[];
   oneTime: number;
   /** How the ON providers that cover part of the job pay. */
   opfPayments: SubsidyPayment[];
@@ -69,6 +84,8 @@ export type SubsidyQuote = {
   postpaid: number;
   /** Prepaid providers first, then postpaid ones. */
   providers: string[];
+  /** Every provider asked for a quote, including those that covered nothing. */
+  quotedProviders: string[];
   total: number;
   /** Discount ignoring usage windows. */
   uncappedDiscount: number;
@@ -338,6 +355,9 @@ export const quoteSubsidy = async ({
   const programAddresses = new Set(programProviders.map((address) => address.toLowerCase()));
   const custom = customProviders.filter((address) => !programAddresses.has(address.toLowerCase()));
   const discountAddresses = new Set(program?.discount?.addresses);
+  const oneTimeAddresses = new Set(program?.oneTime?.addresses);
+  const kindOf = (address: string): SubsidyLineKind =>
+    oneTimeAddresses.has(address) ? 'one_time' : discountAddresses.has(address) ? 'discount' : 'custom';
 
   const withCustomFallback = async <T>(address: string, read: () => Promise<T>): Promise<T | null> => {
     try {
@@ -382,6 +402,7 @@ export const quoteSubsidy = async ({
   let remaining = cost;
   let discountBase: number | null = null;
   const covered: Record<string, number> = {};
+  const quotedProviders: string[] = [];
   const prepaidCount = () => Object.keys(covered).filter((address) => payments[address] === 'prepaid').length;
   for (const address of order) {
     if (remaining <= 0) {
@@ -393,6 +414,7 @@ export const quoteSubsidy = async ({
     if (discountAddresses.has(address) && discountBase === null) {
       discountBase = remaining;
     }
+    quotedProviders.push(address);
     const quoted = await withCustomFallback(address, () => quoteProvider(address, remaining));
     const subsidy = Math.min(quoted ?? 0, remaining);
     if (subsidy > 0) {
@@ -410,12 +432,19 @@ export const quoteSubsidy = async ({
   return {
     custom: customCovered,
     discount,
+    lines: providers.map((address) => ({
+      address,
+      amount: covered[address],
+      kind: kindOf(address),
+      payment: payments[address],
+    })),
     oneTime,
     opfPayments: uniquePayments(
       providers.filter((address) => programAddresses.has(address.toLowerCase())).map((address) => payments[address])
     ),
     postpaid: coveredBy(providers.filter((address) => payments[address] === 'postpaid')),
     providers,
+    quotedProviders,
     total: sum(Object.values(covered)),
     uncappedDiscount: program?.discount ? ((discountBase ?? remaining) * program.discount.percent) / 100 : 0,
   };
@@ -427,11 +456,28 @@ export const getProgramPayments = (program: SubsidyProgram): SubsidyPayment[] =>
 export const getUpfrontCost = (cost: number, quote: SubsidyQuote | undefined) =>
   Math.max(0, cost - (quote ? quote.total - quote.postpaid : 0));
 
+/** Why `resolveJobSubsidy` did or didn't name providers for a job. */
+export type JobSubsidyStatus = 'covered' | 'error' | 'no_providers' | 'not_covered' | 'zero_cost';
+
+export type JobSubsidy = {
+  /** Set when `status` is `error`. */
+  error?: string;
+  /**
+   * Sent to the node as is. `undefined` leaves the choice to the node, which then uses its own configured providers;
+   * an empty list tells it to apply no subsidy.
+   */
+  providers: string[] | undefined;
+  /** `null` when nothing was quoted (`zero_cost`, `no_providers`, `error`). */
+  quote: SubsidyQuote | null;
+  status: JobSubsidyStatus;
+};
+
 /**
- * `undefined` leaves the choice to the node; an empty list tells it to apply no subsidy.
- * A job the ON subsidy doesn't cover only gets custom providers, and never falls back to the node's choice.
+ * Quotes the subsidy for a job about to start. Never throws.
+ * When nothing is quoted, a job the ON subsidy covers leaves the choice to the node. Any other job only gets custom
+ * providers, and tells the node to apply no subsidy instead of falling back to its choice.
  */
-export const getJobSubsidyProviders = async ({
+export const resolveJobSubsidy = async ({
   cost,
   isOpfEligible,
   jobType,
@@ -443,10 +489,10 @@ export const getJobSubsidyProviders = async ({
   jobType: SubsidyJobType;
   nodeAddress: string;
   payer: string;
-}): Promise<string[] | undefined> => {
+}): Promise<JobSubsidy> => {
   const fallback = isOpfEligible ? undefined : [];
   if (cost <= 0) {
-    return fallback;
+    return { providers: fallback, quote: null, status: 'zero_cost' };
   }
   try {
     const [program, customProviders] = await Promise.all([
@@ -454,13 +500,20 @@ export const getJobSubsidyProviders = async ({
       loadCustomSubsidyProviders(payer),
     ]);
     if (!program && customProviders.length === 0) {
-      return fallback;
+      return { providers: fallback, quote: null, status: 'no_providers' };
     }
     const quote = await quoteSubsidy({ cost, customProviders, jobType, nodeAddress, payer, program });
-    return quote.providers.length > 0 ? quote.providers : fallback;
+    return quote.providers.length > 0
+      ? { providers: quote.providers, quote, status: 'covered' }
+      : { providers: fallback, quote, status: 'not_covered' };
   } catch (error) {
     console.error('Failed to resolve subsidy providers for job', error);
-    return fallback;
+    return {
+      error: error instanceof Error ? error.message : String(error),
+      providers: fallback,
+      quote: null,
+      status: 'error',
+    };
   }
 };
 
