@@ -21,9 +21,13 @@ import { toast } from 'react-toastify';
 // The node follows a running service's log, so its stream never ends on its own: a pause this long
 // is the only sign that the history has all arrived.
 const IDLE_MS = 2000;
-// For a container that never goes quiet. Twice the panel's one-off fetch (15s), because a download
-// is meant to hold the whole history, not just a recent page of it.
-const MAX_MS = 30000;
+// Ends a snapshot of a container that never goes quiet. Twice the panel's one-off fetch (15s),
+// because a download is meant to hold the whole history, not just a recent page of it.
+const SNAPSHOT_MAX_MS = 30000;
+// A finished service's stream ends on its own once the node has sent everything, so this only guards
+// against a transfer that hangs. Generous, because the node keeps up to 16 MiB per container and a
+// read cut short would lose the newest output, which is where a crash shows.
+const FINAL_MAX_MS = 120000;
 
 type DownloadServiceLogsButtonProps = {
   nodePeerId?: string;
@@ -102,7 +106,7 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
       const raw = await withNodeAuth(nodePeerId, nodeUri, (token) =>
         getServiceLogs(nodeUri, token, serviceId, undefined, {
           idleMs: IDLE_MS,
-          maxMs: MAX_MS,
+          maxMs: isSnapshot ? SNAPSHOT_MAX_MS : FINAL_MAX_MS,
           signal: abortController.signal,
           throwOnError: true,
         })
