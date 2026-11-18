@@ -70,10 +70,11 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
   // clicks in the same frame would both get past a check on it.
   const abortRef = useRef<AbortController | null>(null);
 
-  // Leaving the page mid-download must not save a file (or raise a toast) on whatever page is next.
+  // A download must not save a file (or raise a toast) once the user has moved on: leaving the page,
+  // or switching the same page to another service, which Next.js does without remounting it.
   useEffect(() => {
     return () => abortRef.current?.abort();
-  }, []);
+  }, [serviceId]);
 
   const retentionEnded = isServiceLogsRetentionEnded(retentionEndsAt);
 
@@ -81,8 +82,8 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
     if (abortRef.current || !nodeUri || !nodePeerId) {
       return;
     }
-    // Checked again at click time: a finished service stops the status poll, so nothing re-renders
-    // this button if the window closes while the page sits open.
+    // Checked again at click time: browsers delay timers in background tabs, so the page's re-check
+    // at the deadline may not have re-rendered this button yet.
     if (isServiceLogsRetentionEnded(retentionEndsAt)) {
       toast.error(SERVICE_LOGS_RETENTION_ENDED_NOTE);
       return;
