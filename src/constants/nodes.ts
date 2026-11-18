@@ -11,6 +11,7 @@
 export const ON_INFERENCE_NODES = [
   '16Uiu2HAmBxtwWEH8m9HLdCJncZGe9Ukj5xLxNhvM5KY17jjz899q',
   '16Uiu2HAmR9z4EhF9zoZcErrdcEJKCjfTpXJfBcmbNppbT3QYtBpi',
+  '16Uiu2HAkvFtfjqQQ45FQBBuB6TiFnwPkm8f8qPpts2UNAEe8i8tn',
 ];
 
 /** Whether a node's peer id is on the inference allowlist. Missing/empty id → not allowed. */

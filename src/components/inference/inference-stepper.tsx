@@ -1,8 +1,9 @@
-import { getInferenceSteps, InferenceStep } from '@/components/stepper/get-steps';
+import { kindLabelFor } from '@/components/inference/catalogue-config';
+import { getInferenceSteps, InferenceStep, TemplateKindLabel } from '@/components/stepper/get-steps';
 import Stepper from '@/components/stepper/stepper';
 import { InferenceFlowType } from '@/types/inference';
 import { templateNeedsConfigStep } from '@/services/template-launch';
-import { AppTemplate, isBundle } from '@/types/templates';
+import { AppTemplate } from '@/types/templates';
 
 type InferenceStepperProps = {
   currentStep: InferenceStep;
@@ -10,13 +11,13 @@ type InferenceStepperProps = {
   /** Edit re-entry: hides the (skipped) Resources step. */
   edit?: boolean;
   /**
-   * The picked template, for the Template flow. It decides the first step's label (Service vs Template)
+   * The picked template, for the Template flow. It decides the first step's label (Service, Template or Model)
    * and whether a fresh launch gets a Config step at all — pass it wherever it is known, so the step
    * list matches the route the user is actually walking.
    */
   template?: AppTemplate | null;
   /** Catalogue pages know which kind they list before anything is picked — they pass it directly. */
-  kindLabel?: 'Service' | 'Template';
+  kindLabel?: TemplateKindLabel;
   /**
    * Force the Config step on when the template alone can't say so — the config page itself, which is
    * on that step by definition. Otherwise leave it unset: the step list is derived from `template`
@@ -34,7 +35,7 @@ const InferenceStepper: React.FC<InferenceStepperProps> = ({
   showTemplateConfig,
 }) => {
   const steps = getInferenceSteps(flowType, edit, {
-    kindLabel: kindLabel ?? (template && isBundle(template) ? 'Template' : 'Service'),
+    kindLabel: kindLabel ?? (template ? kindLabelFor(template) : 'Service'),
     // One predicate with the routing, so the drawn steps can't disagree with the walked ones.
     needsConfig: templateNeedsConfigStep(template) || !!showTemplateConfig,
   });
