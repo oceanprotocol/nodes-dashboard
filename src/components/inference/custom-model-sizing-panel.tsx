@@ -269,17 +269,17 @@ export function SizingListHeader({ context }: { context: string }) {
   return <p className={styles.listHeader}>The following environments can hold this model at {context} context.</p>;
 }
 
-/** In place of the environment list when no environment holds the estimate. */
+/** Above the environments when none is estimated to hold the model: they stay listed and bookable below. */
 export function NoFitCard({ context, onChooseShorter }: { context: string; onChooseShorter: () => void }) {
   return (
     <div className={styles.noFit}>
       <span aria-hidden className={styles.noFitIcon}>
         <SearchOffIcon />
       </span>
-      <strong>No environment can hold this model at {context} context</strong>
+      <strong>No environment is estimated to hold this model at {context} context</strong>
       <p>
-        The free GPUs are smaller than every layout above. Choose a shorter context, or pick a quantized variant of the
-        model.
+        The free GPUs below are smaller than every layout above, so the model may run out of memory. Choose a shorter
+        context or a quantized variant, or book one anyway: this is an estimate.
       </p>
       <Button className={styles.shorter} color="accent1" onClick={onChooseShorter} size="sm" variant="outlined">
         Choose a shorter context

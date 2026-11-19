@@ -5,8 +5,10 @@ import useCustomModelSizing from '@/components/hooks/use-custom-model-sizing';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import CustomModelSizingPanel, {
   ContextChoice,
+  CustomModelSizingPanelHandle,
   FitSummary,
   formatTokensShort,
+  NoFitCard,
   SizingLayout,
 } from '@/components/inference/custom-model-sizing-panel';
 import DeclaredResources from '@/components/inference/declared-resources';
@@ -43,17 +45,25 @@ import {
 import { acceptsUsdc, getEnvUsdcFees } from '@/utils/env-tokens';
 import { formatDuration } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { grantableAmount, type TemplateResourceRequirement } from '@oceanprotocol/lib';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
 const DEFAULT_CONTEXT_OPTION = 'default';
+
+/** Pages fetched on their own while every listed environment is estimated too small (see fitSearch). */
+const FIT_SEARCH_MAX_PAGES = 3;
+
+/** One environment as the picker lists it, with the GPU counts it holds the estimate as (see fitGpuCounts). */
+type ListedEnv = { node: NodeEnvironments; env: ComputeEnvironment; gpuCounts: number[] | null };
 
 /** Paid service-on-demand duration bounds for an env. Inference always uses a paid token, so the
  *  top-level bounds apply (not the `free.*` ones). */
@@ -278,6 +288,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
         : null,
     [sizingRequirement]
   );
+  const sizingPanelRef = useRef<CustomModelSizingPanelHandle>(null);
   const onSizingContextChange = (value: string) => {
     const { [SIZING_CONTEXT_QUERY_KEY]: _dropped, ...rest } = router.query;
     // Shallow: the URL carries the choice to the config step (and across a refresh); `ctx` is not part
@@ -354,20 +365,50 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   /**
    * GPU counts an environment's free cards can book the estimate as, for its card's "Fits as …" line;
-   * null (no line) when none of its GPUs report their VRAM, so the estimate can't be checked there.
+   * null (no line) when there is no estimate or none of its GPUs report their VRAM, so it can't be checked.
    */
-  const fitGpuCounts = (env: ComputeEnvironment): number[] | null =>
-    sizingRequirement && gpuTypesOf(env).some((type) => type.vramGb !== undefined)
-      ? [
-          ...new Set(
-            planGpuDemand({ environment: env, demand: { kind: 'vram', requirement: sizingRequirement } }).map(
-              (c) => c.layout?.gpuCount ?? 0
-            )
-          ),
-        ]
-          .filter((count) => count > 0)
-          .sort((x, y) => x - y)
-      : null;
+  const fitGpuCounts = useCallback(
+    (env: ComputeEnvironment): number[] | null =>
+      isCustomModelFlow && sizingRequirement && gpuTypesOf(env).some((type) => type.vramGb !== undefined)
+        ? [
+            ...new Set(
+              planGpuDemand({ environment: env, demand: { kind: 'vram', requirement: sizingRequirement } }).map(
+                (c) => c.layout?.gpuCount ?? 0
+              )
+            ),
+          ]
+            .filter((count) => count > 0)
+            .sort((x, y) => x - y)
+        : null,
+    [isCustomModelFlow, sizingRequirement]
+  );
+
+  /*
+   * The estimate only orders the list, it never hides for good: environments whose free GPUs are
+   * estimated too small for every layout go in a collapsed group under the rest (which also holds the
+   * ones it can't check). The group opens on demand, by itself when nothing else is listed, and when it
+   * holds the user's earlier pick.
+   */
+  const { mainEnvs, tooSmallEnvs } = useMemo(() => {
+    const main: ListedEnv[] = [];
+    const tooSmall: ListedEnv[] = [];
+    filteredNodeEnvs.forEach((node) =>
+      node.computeEnvironments.environments.forEach((env) => {
+        const gpuCounts = fitGpuCounts(env);
+        (gpuCounts?.length === 0 ? tooSmall : main).push({ node, env, gpuCounts });
+      })
+    );
+    return { mainEnvs: main, tooSmallEnvs: tooSmall };
+  }, [filteredNodeEnvs, fitGpuCounts]);
+  /** What the too-small group's open state belongs to: a new estimate, filter or sort closes it again. */
+  const fitGroupKey = JSON.stringify([sizingRequirement ?? null, filters, sort]);
+  const [tooSmallOpenFor, setTooSmallOpenFor] = useState<string | null>(null);
+  const noEnvFitsEstimate = tooSmallEnvs.length > 0 && mainEnvs.length === 0;
+  /** The group holds the user's earlier pick: kept open (no toggle) so the selection stays visible. */
+  const tooSmallHoldsPick = tooSmallEnvs.some(
+    ({ node, env }) => selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id
+  );
+  const tooSmallOpen = tooSmallOpenFor === fitGroupKey || noEnvFitsEstimate || tooSmallHoldsPick;
 
   // Keep paging while the visible list is empty. loadMoreEnvs itself skips over pages that contribute
   // nothing bookable, so this fires once per stall rather than once per server page.
@@ -381,6 +422,25 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
       loadMoreEnvs(isListedEnv);
     }
   }, [filteredNodeEnvs.length, loading, loadMoreEnvs, paginationResponse, isListedEnv]);
+
+  // Everything loaded so far is estimated too small: fetch a few more pages, one at a time, looking for
+  // an environment that fits, then stop — "Load more" goes further. Restarts on a new estimate/filter/sort.
+  const fitSearch = useRef({ key: '', pages: 0 });
+  useEffect(() => {
+    if (fitSearch.current.key !== fitGroupKey) {
+      fitSearch.current = { key: fitGroupKey, pages: 0 };
+    }
+    if (
+      !loading &&
+      noEnvFitsEstimate &&
+      fitSearch.current.pages < FIT_SEARCH_MAX_PAGES &&
+      paginationResponse &&
+      paginationResponse.currentPage < paginationResponse.totalPages
+    ) {
+      fitSearch.current.pages += 1;
+      loadMoreEnvs();
+    }
+  }, [fitGroupKey, loading, noEnvFitsEstimate, paginationResponse, loadMoreEnvs]);
 
   const handleSelect = (
     node: NodeEnvironments,
@@ -478,6 +538,41 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     onDurationChange(seconds);
   };
 
+  const renderEnv = ({ node, env, gpuCounts }: ListedEnv) => {
+    const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
+    const { min, max } = durationBounds(env);
+    const durationBlockedReason =
+      durationError ??
+      (jobDurationSeconds < min
+        ? `Choose at least ${formatDuration(min)} for this environment.`
+        : jobDurationSeconds > max
+          ? `Choose ${formatDuration(max)} or less for this environment.`
+          : undefined);
+    return (
+      <div key={`${node.id}-${env.id}`} className={styles.environmentOption}>
+        {!durationError && durationBlockedReason && <p className={styles.durationNotice}>{durationBlockedReason}</p>}
+        <InferenceEnvironmentCard
+          disabledReason={durationBlockedReason}
+          // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
+          // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
+          // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
+          allowZeroGpu={flowType === InferenceFlowType.Template}
+          declaredRequirements={declaredResources}
+          gpuDemand={gpuDemand}
+          forcedGpuCount={forcedGpuCount}
+          durationSeconds={jobDurationSeconds}
+          environment={env}
+          initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
+          sizing={selectedEnv?.sizing}
+          selected={isPriorSelection}
+          nodeInfo={node}
+          onSelect={(gpuSelection, pickedEnv, gpuPlan) => handleSelect(node, pickedEnv, gpuSelection, gpuPlan)}
+          fitSummary={gpuCounts ? <FitSummary gpuCounts={gpuCounts} /> : undefined}
+        />
+      </div>
+    );
+  };
+
   return (
     <>
       <Card direction="column" padding="md" radius="lg" shadow="black" spacing="md" variant="glass-shaded">
@@ -491,7 +586,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
               gaps={customSizing?.gaps}
               layouts={sizingLayouts}
               loading={sizingLoading}
+              highlightContext={noEnvFitsEstimate}
               onContextChange={onSizingContextChange}
+              ref={sizingPanelRef}
               widths={customSizing?.widths ?? null}
             />
           )}
@@ -584,55 +681,39 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 ) : (
                   'Adjust the GPU count on an environment if needed, then start it.'
                 )}
-                {isCustomModelFlow && sizingRequirement && (
+                {isCustomModelFlow && sizingRequirement && !noEnvFitsEstimate && (
                   <div>
-                    Each environment shows whether it is estimated to hold this model at {sizedContextLabel} context.
+                    Environments estimated to hold this model at {sizedContextLabel} context come first; the rest are
+                    below.
                   </div>
                 )}
               </div>
-              {filteredNodeEnvs.map((node) =>
-                node.computeEnvironments.environments.map((env) => {
-                  const isPriorSelection =
-                    selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
-                  const { min, max } = durationBounds(env);
-                  const durationBlockedReason =
-                    durationError ??
-                    (jobDurationSeconds < min
-                      ? `Choose at least ${formatDuration(min)} for this environment.`
-                      : jobDurationSeconds > max
-                        ? `Choose ${formatDuration(max)} or less for this environment.`
-                        : undefined);
-                  return (
-                    <div key={`${node.id}-${env.id}`} className={styles.environmentOption}>
-                      {!durationError && durationBlockedReason && (
-                        <p className={styles.durationNotice}>{durationBlockedReason}</p>
-                      )}
-                      <InferenceEnvironmentCard
-                        disabledReason={durationBlockedReason}
-                        // Zero-GPU picks are Template-flow policy only: this picker is shared with CustomModel
-                        // (see isEnvPickerFlow in resources-page.tsx), which must keep the existing hard floor
-                        // of 1 — a custom HF model has no declared requirement to justify skipping GPU entirely.
-                        allowZeroGpu={flowType === InferenceFlowType.Template}
-                        declaredRequirements={declaredResources}
-                        gpuDemand={gpuDemand}
-                        forcedGpuCount={forcedGpuCount}
-                        durationSeconds={jobDurationSeconds}
-                        environment={env}
-                        initialSelection={isPriorSelection ? selectedEnv?.gpuSelection : undefined}
-                        sizing={selectedEnv?.sizing}
-                        selected={isPriorSelection}
-                        nodeInfo={node}
-                        onSelect={(gpuSelection, pickedEnv, gpuPlan) =>
-                          handleSelect(node, pickedEnv, gpuSelection, gpuPlan)
-                        }
-                        fitSummary={(() => {
-                          const gpuCounts = isCustomModelFlow ? fitGpuCounts(env) : null;
-                          return gpuCounts ? <FitSummary gpuCounts={gpuCounts} /> : undefined;
-                        })()}
-                      />
-                    </div>
-                  );
-                })
+              {mainEnvs.map(renderEnv)}
+              {tooSmallEnvs.length > 0 && (
+                <>
+                  {noEnvFitsEstimate ? (
+                    <NoFitCard
+                      context={sizedContextLabel}
+                      onChooseShorter={() => sizingPanelRef.current?.focusContext()}
+                    />
+                  ) : (
+                    !tooSmallHoldsPick && (
+                      <Button
+                        aria-expanded={tooSmallOpen}
+                        className="alignSelfCenter"
+                        color="primary"
+                        contentAfter={tooSmallOpen ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        onClick={() => setTooSmallOpenFor(tooSmallOpen ? null : fitGroupKey)}
+                        size="sm"
+                        variant="transparent"
+                      >
+                        {tooSmallOpen ? 'Hide' : 'Show'} {tooSmallEnvs.length} environment
+                        {tooSmallEnvs.length === 1 ? '' : 's'} estimated too small
+                      </Button>
+                    )
+                  )}
+                  {tooSmallOpen && tooSmallEnvs.map(renderEnv)}
+                </>
               )}
             </>
           ) : (
