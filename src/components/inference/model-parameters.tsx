@@ -262,6 +262,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [loadError, setLoadError] = useState<string | null>(null);
   // Feedback for the explicit "Reload defaults" action (initial load stays silent beyond the spinner).
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // Raw GPU-layers text while the field is being typed in (null otherwise) — see its onChange.
+  const [gpuLayersDraft, setGpuLayersDraft] = useState<string | null>(null);
 
   // Derived, not state: it's a pure function of the loaded config, so it can't go stale against it.
   const architectureWarning = getArchitectureIncompatibility(config?.architecture);
@@ -409,7 +411,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const modelEntry = selectedModels.find((m) => m.id === modelId);
   const ggufOnly = !!modelEntry && isGgufOnlyModel(modelEntry);
   const initialValues = useMemo(() => {
-    const defaults = buildModelDefaults(defaultsConfig, modelId, engine, ggufOnly);
+    const defaults = buildModelDefaults(defaultsConfig, modelId, engine, ggufOnly, bookedGpus > 0);
     if (committedParams && committedParams.engine === engine) {
       return { ...defaults, ...committedParams } as ModelParametersType;
     }
@@ -418,7 +420,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       return { ...defaults, maxContext: ceiling !== null ? Math.min(sizingContext, ceiling) : sizingContext };
     }
     return defaults;
-  }, [committedParams, defaultsConfig, modelId, engine, ggufOnly, sizingContext]);
+  }, [committedParams, defaultsConfig, modelId, engine, ggufOnly, bookedGpus, sizingContext]);
 
   // Checks the launch settings against the booked GPUs with the same per-width estimate the env picker
   // shows (customModelSizing). Only a booked width the model's heads can't split across is an `error`
@@ -530,7 +532,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         if (result) {
           // requestEngine, not the live one: `revision` was captured for it, so building defaults for
           // anything else would merge a vLLM field into a llama.cpp value set.
-          const defaults = buildModelDefaults(result, modelId, requestEngine, ggufOnly);
+          const defaults = buildModelDefaults(result, modelId, requestEngine, ggufOnly, bookedGpus > 0);
           // `revision` is only set for vLLM, so `defaults` is the vLLM branch here — but TS can't
           // correlate the two, so re-assert the union type on the merged values.
           const values = (revision ? { ...defaults, revision } : defaults) as ModelParametersType;
@@ -942,20 +944,29 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="-ngl"
             label={labelWithInfo(
               'GPU layers',
-              'How many model layers to offload to the GPU. -1 offloads every layer that fits (the usual choice on a GPU node). 0 runs entirely on CPU (works everywhere). A positive number offloads exactly that many. Anything other than 0 launches the CUDA-built llama.cpp image and needs enough VRAM.'
+              'How many model layers to offload to the GPU. -1 offloads every layer that fits (the default when GPUs are booked). 0 runs entirely on CPU (works everywhere). A positive number offloads exactly that many. Anything other than 0 launches the CUDA-built llama.cpp image and needs enough VRAM.'
             )}
             min={-1}
             name="gpuLayers"
-            onBlur={formik.handleBlur}
-            onChange={(e) => {
-              // Empty input (or a stray '-' mid-typing) → NaN; keep it at 0 rather than writing NaN
-              // into the form, which would stringify to a broken `-ngl NaN` flag.
-              const parsed = Number(e.target.value.trim());
-              formik.setFieldValue('gpuLayers', Number.isFinite(parsed) ? parsed : 0);
+            onBlur={(e) => {
+              setGpuLayersDraft(null);
+              formik.handleBlur(e);
             }}
-            placeholder="0"
+            onChange={(e) => {
+              // A number input reads a lone '-' (the start of -1) back as ''. Coercing that to 0 made
+              // React write "0" into the field and wipe the minus, so -1 couldn't be typed. Keep the raw
+              // text while typing and commit only a parseable value — never NaN, which would stringify
+              // to a broken `-ngl NaN` flag. Blur drops the draft and shows the last committed value.
+              const raw = e.target.value.trim();
+              setGpuLayersDraft(raw);
+              const parsed = Number(raw);
+              if (raw !== '' && Number.isFinite(parsed)) {
+                formik.setFieldValue('gpuLayers', parsed);
+              }
+            }}
+            placeholder={bookedGpus > 0 ? '-1' : '0'}
             type="number"
-            value={v.gpuLayers}
+            value={gpuLayersDraft ?? v.gpuLayers}
           />
           <div>
             <Switch

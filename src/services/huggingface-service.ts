@@ -616,9 +616,12 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
-// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff) and CPU-only offload.
+// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff). GPU offload follows
+// the booking: -1 (every layer that fits) when GPUs are booked, so a paid GPU isn't left idle while the
+// model crawls on CPU; 0 (CPU only) otherwise — offload on a GPU-less env would pick the CUDA image.
 const DEFAULT_GGUF_QUANT = 'Q4_K_M';
-const DEFAULT_LLAMA_GPU_LAYERS = 0;
+const DEFAULT_LLAMA_GPU_LAYERS_GPU = -1;
+const DEFAULT_LLAMA_GPU_LAYERS_CPU = 0;
 
 /** Ocean's supported inference engines, for selectors. `vllm` is the default. */
 export const INFERENCE_ENGINE_OPTIONS: { label: string; value: InferenceEngine }[] = [
@@ -718,7 +721,8 @@ function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: strin
 function buildLlamaCppDefaults(
   config: HuggingFaceModelConfig | null,
   modelId: string,
-  ggufOnly: boolean
+  ggufOnly: boolean,
+  hasGpu: boolean
 ): LlamaCppParameters {
   return {
     engine: 'llamacpp',
@@ -728,7 +732,7 @@ function buildLlamaCppDefaults(
     ggufQuant: DEFAULT_GGUF_QUANT,
     // Seed the model's reported context; null lets llama.cpp use its trained default.
     contextLength: config?.maxContext ?? null,
-    gpuLayers: DEFAULT_LLAMA_GPU_LAYERS,
+    gpuLayers: hasGpu ? DEFAULT_LLAMA_GPU_LAYERS_GPU : DEFAULT_LLAMA_GPU_LAYERS_CPU,
     // Jinja on by default so chat/tool templates work; the models we serve are chat models.
     jinja: true,
   };
@@ -739,15 +743,20 @@ function buildLlamaCppDefaults(
  * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
  * the fallback used for a selection whose params haven't been committed yet. The engine picks which
  * branch of ModelParameters is returned (defaults to vLLM). `ggufOnly`: the model repo is itself the GGUF
- * repo llama.cpp serves (see isGgufOnlyModel), even when its id doesn't say so.
+ * repo llama.cpp serves (see isGgufOnlyModel), even when its id doesn't say so. `hasGpu`: the booking
+ * holds GPUs, so llama.cpp offloads every layer by default. Left false where no booking is known
+ * (parsing a launch command), so an absent `-ngl` keeps meaning CPU.
  */
 export function buildModelDefaults(
   config: HuggingFaceModelConfig | null,
   modelId: string,
   engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE,
-  ggufOnly = false
+  ggufOnly = false,
+  hasGpu = false
 ): ModelParameters {
-  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId, ggufOnly) : buildVllmDefaults(config, modelId);
+  return engine === 'llamacpp'
+    ? buildLlamaCppDefaults(config, modelId, ggufOnly, hasGpu)
+    : buildVllmDefaults(config, modelId);
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */
