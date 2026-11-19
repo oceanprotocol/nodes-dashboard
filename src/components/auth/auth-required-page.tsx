@@ -9,7 +9,7 @@ type AuthRequiredPage = {
 };
 
 /**
- * Gates a page behind a connected account. Deliberately does not open the login modal on
+ * Gates a page behind a connected account. Deliberately does not open the login page on
  * mount: "disconnected" is indistinguishable from "a silent reconnect is still resolving"
  * without a settling signal that has to be correct across effect ordering. Letting the user
  * click removes that whole class of mistimed prompt.

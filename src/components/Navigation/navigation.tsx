@@ -80,7 +80,7 @@ const AccountButton = ({ onNavigate }: { onNavigate?: () => void }) => {
 type AccountActionsProps = {
   /** Mobile sidebar: link straight to the account page and expose log out as its own button. */
   asLinks?: boolean;
-  /** Called when the slot navigates away or opens the login modal, so the sidebar can close. */
+  /** Called when the slot navigates away or opens the login page, so the sidebar can close. */
   onNavigate?: () => void;
 };
 

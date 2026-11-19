@@ -1,5 +1,6 @@
 'use client';
 
+import { isAlchemyMigrationUser } from '@/lib/embedded-wallet';
 import { alchemy, base, sepolia } from '@account-kit/infra';
 import { createMigrationConfig, MigrationProvider } from '@privy-io/alchemy-migration';
 import '@privy-io/alchemy-migration/styles.css';
@@ -28,11 +29,10 @@ const migrationConfig = createMigrationConfig(
   }
 );
 
-// createOnLogin handles wallet creation for the standard redirect OAuth path (where the plugin
-// callback is not invoked). The plugin runs for flows where privy calls it (email, passkey) and
-// suppresses wallet creation for Alchemy migration users (alchemy_org_id present).
+// createOnLogin and this plugin only apply to logins through Privy's modal. The headless login
+// page creates the wallet itself, using the same rule (see needsEmbeddedWallet).
 const walletCreationPlugin = createWalletCreationOnLoginPlugin({
-  shouldCreateWallet: ({ user }: { user: User }) => user.customMetadata?.['alchemy_org_id'] === undefined,
+  shouldCreateWallet: ({ user }: { user: User }) => !isAlchemyMigrationUser(user),
 });
 
 export function AlchemyProvider({ children }: { children: React.ReactNode }) {
