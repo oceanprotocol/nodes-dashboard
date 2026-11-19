@@ -587,6 +587,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
               layouts={sizingLayouts}
               loading={sizingLoading}
               highlightContext={noEnvFitsEstimate}
+              hideContext={engine === 'llamacpp'}
               onContextChange={onSizingContextChange}
               ref={sizingPanelRef}
               widths={customSizing?.widths ?? null}

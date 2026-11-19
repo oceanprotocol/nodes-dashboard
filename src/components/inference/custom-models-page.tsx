@@ -19,6 +19,7 @@ import {
   getModelShortName,
   ModelSort,
   PipelineTag,
+  withWeightFormats,
 } from '@/services/huggingface-service';
 import { INFERENCE_PATHS } from '@/services/inference-url';
 import {
@@ -112,7 +113,16 @@ const CustomModelsPage: React.FC = () => {
   // selection avoids leading the user into a form that can never produce a working launch.
   const [rejected, setRejected] = useState<{ model: HuggingFaceModel; compatibility: ModelCompatibility } | null>(null);
 
-  const selectModel = (model: HuggingFaceModel) => {
+  // Bumped per pick, so a slow file-list fetch can't apply a pick the user has since replaced.
+  const pickSeqRef = useRef(0);
+
+  const selectModel = async (picked: HuggingFaceModel) => {
+    const seq = ++pickSeqRef.current;
+    // A deselect needs no metadata. A pick may need the repo's file list to tell GGUF-only from mixed.
+    const model = isModelSelected(picked.id) ? picked : await withWeightFormats(picked);
+    if (seq !== pickSeqRef.current) {
+      return;
+    }
     const compatibility = getModelCompatibility(model);
     if (!compatibility.supported) {
       setRejected({ model, compatibility });

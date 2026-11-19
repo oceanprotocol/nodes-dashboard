@@ -37,7 +37,9 @@ import { HuggingFaceModel } from '@/types/huggingface';
  * ## Scope
  *
  * Reads only what HF's LIST response carries: `id`, `pipelineTag`, `libraryName`, `tags`. That gates
- * a whole grid with no per-model fetch. Anything needing `config.json` runs after selection — see
+ * a whole grid with no per-model fetch. The one exception is the engine choice for an ambiguous GGUF
+ * repo, which needs the file list (`needsWeightFormats`, fetched on pick). Anything needing
+ * `config.json` runs after selection — see
  * `getArchitectureIncompatibility`. Nothing here checks VRAM, the engine's architecture registry, or
  * `custom_code`.
  *
@@ -69,8 +71,7 @@ export type IncompatibilityKind =
 export type ServableEngines = 'both' | 'llamacpp-only';
 
 export type ModelCompatibility =
-  | { supported: true; engines: ServableEngines }
-  | { supported: false; kind: IncompatibilityKind; reason: string };
+  { supported: true; engines: ServableEngines } | { supported: false; kind: IncompatibilityKind; reason: string };
 
 /** `*-text-to-text` are multimodal input with text output. */
 export const SERVABLE_PIPELINE_TAGS = new Set([
@@ -275,15 +276,61 @@ function formatNamedInId(format: string, modelId: string): boolean {
   return new RegExp(`(^|[^a-z0-9])${needle.replace(/[.\\]/g, '\\$&')}([^a-z0-9]|$)`).test(id);
 }
 
-/** GGUF and nothing else. The tag alone isn't enough — base repos publish GGUF conversions too. */
-function isGgufOnly(library: string | undefined, tags: string[], modelId: string): boolean {
+/**
+ * A `gguf`-tagged repo whose id doesn't say GGUF and which HF hasn't indexed safetensors for: only its
+ * file list can tell a GGUF-only repo (`HauhauCS/Qwen3.5-122B-A10B-Uncensored-HauhauCS-Aggressive`)
+ * from a mixed one whose PyTorch or unindexed safetensors weights vLLM loads fine.
+ */
+function isGgufAmbiguous(library: string | undefined, tags: string[], model: HuggingFaceModel): boolean {
+  return (
+    (!library || library === 'transformers') &&
+    tags.includes('gguf') &&
+    !isGgufRepoId(model.id) &&
+    model.paramCount === undefined
+  );
+}
+
+/**
+ * GGUF and nothing else. The tag alone isn't enough — base repos publish GGUF conversions too — so it
+ * needs the id to say so too, or the repo's files to be GGUF with no checkpoint beside them. A missing
+ * safetensors index proves nothing on its own: HF leaves plenty of mixed repos unindexed.
+ */
+function isGgufOnly(library: string | undefined, tags: string[], model: HuggingFaceModel): boolean {
   if (library && GGUF_LIBRARIES.has(library)) {
     return true;
   }
   if (library && library !== 'transformers') {
     return false;
   }
-  return tags.includes('gguf') && isGgufRepoId(modelId);
+  if (!tags.includes('gguf')) {
+    return false;
+  }
+  if (isGgufRepoId(model.id)) {
+    return true;
+  }
+  // Unknown file list keeps both engines — the cheap error: one failed vLLM launch, not a lost engine.
+  return model.paramCount === undefined && !!model.weightFormats?.gguf && !model.weightFormats.checkpoint;
+}
+
+/** Whether the repo holds GGUF weights only (llama.cpp serves it, vLLM can't), see isGgufOnly. */
+export function isGgufOnlyModel(model: HuggingFaceModel): boolean {
+  return isGgufOnly(
+    model.libraryName?.toLowerCase(),
+    (model.tags ?? []).map((t) => t.toLowerCase()),
+    model
+  );
+}
+
+/** Whether isGgufOnlyModel needs `weightFormats` to decide and the model doesn't carry it yet. */
+export function needsWeightFormats(model: HuggingFaceModel): boolean {
+  return (
+    model.weightFormats === undefined &&
+    isGgufAmbiguous(
+      model.libraryName?.toLowerCase(),
+      (model.tags ?? []).map((t) => t.toLowerCase()),
+      model
+    )
+  );
 }
 
 /** `text-to-audio` → "a text-to-audio"; `automatic-speech-recognition` → "an automatic speech…". */
@@ -341,7 +388,7 @@ export function getModelCompatibility(model: HuggingFaceModel): ModelCompatibili
   const tag = model.pipelineTag;
   const library = model.libraryName?.toLowerCase();
   const tags = (model.tags ?? []).map((t) => t.toLowerCase());
-  const engines: ServableEngines = isGgufOnly(library, tags, model.id) ? 'llamacpp-only' : 'both';
+  const engines: ServableEngines = isGgufOnlyModel(model) ? 'llamacpp-only' : 'both';
 
   // First: a LoRA repo inherits its base model's tag and library, so nothing below would see it.
   const adapterByTag = !library && tags.some((t) => ADAPTER_TAGS.has(t));

@@ -224,4 +224,10 @@ export type HuggingFaceModel = {
    * counted per int32), so dtype size × count overstates GPTQ/AWQ weights ~8x.
    */
   paramsByDtype?: Record<string, number>;
+  /**
+   * Which weight formats the repo's files hold: `gguf` for llama.cpp, `checkpoint` for the safetensors
+   * or PyTorch `.bin` weights vLLM loads. From the repo's file list, which the list endpoint doesn't
+   * carry — undefined until fetched (see withWeightFormats), so it means "unknown", not "none".
+   */
+  weightFormats?: { gguf: boolean; checkpoint: boolean };
 };

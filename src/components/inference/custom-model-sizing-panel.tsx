@@ -42,6 +42,8 @@ export type CustomModelSizingPanelProps = {
   gaps?: Partial<CustomModelSizingGaps>;
   /** No environment holds the estimate: ring the context control, the thing to change. */
   highlightContext?: boolean;
+  /** Leave the context control out: llama.cpp gets no estimate to size, and its context isn't carried over. */
+  hideContext?: boolean;
 };
 
 export type CustomModelSizingPanelHandle = {
@@ -81,6 +83,7 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
       widths,
       gaps = {},
       highlightContext = false,
+      hideContext = false,
     },
     ref
   ) {
@@ -182,40 +185,44 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
     return (
       <div ref={panelRef}>
         <Card direction="column" padding="sm" radius="md" shadow="black" spacing="md" variant="glass">
-          <div className={styles.sections}>
-            <SettingsSection
-              description={
-                <span>
-                  Max tokens per request, input + output.
-                  <br />
-                  Carries over to Max context in Config.
-                </span>
-              }
-              icon={<SubjectIcon />}
-              title="Context length"
-            >
-              <TabBar
-                activeKey={choices[checkedIndex]?.value ?? ''}
-                ariaLabel="Context length"
-                cardVariant="glass"
-                className={cx(styles.choices, highlightContext && styles.highlight)}
-                disabled={contextUnknown}
-                selectedButtonColor="accent1"
-                size="sm"
-                tabs={choices.map((choice) => ({
-                  key: choice.value,
-                  label: (
-                    <>
-                      {choice.label}
-                      {choice.suffix && <span className={styles.suffix}>{choice.suffix}</span>}
-                    </>
-                  ),
-                  onClick: () => onContextChange(choice.value),
-                }))}
-              />
-            </SettingsSection>
+          <div className={cx(styles.sections, hideContext && styles.sectionsSingle)}>
+            {!hideContext && (
+              <>
+                <SettingsSection
+                  description={
+                    <span>
+                      Max tokens per request, input + output.
+                      <br />
+                      Carries over to Max context in Config.
+                    </span>
+                  }
+                  icon={<SubjectIcon />}
+                  title="Context length"
+                >
+                  <TabBar
+                    activeKey={choices[checkedIndex]?.value ?? ''}
+                    ariaLabel="Context length"
+                    cardVariant="glass"
+                    className={cx(styles.choices, highlightContext && styles.highlight)}
+                    disabled={contextUnknown}
+                    selectedButtonColor="accent1"
+                    size="sm"
+                    tabs={choices.map((choice) => ({
+                      key: choice.value,
+                      label: (
+                        <>
+                          {choice.label}
+                          {choice.suffix && <span className={styles.suffix}>{choice.suffix}</span>}
+                        </>
+                      ),
+                      onClick: () => onContextChange(choice.value),
+                    }))}
+                  />
+                </SettingsSection>
 
-            <Divider className={styles.sectionDivider} />
+                <Divider className={styles.sectionDivider} />
+              </>
+            )}
 
             <SettingsSection
               className={styles.gpuSection}

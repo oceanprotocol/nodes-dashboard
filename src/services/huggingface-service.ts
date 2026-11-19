@@ -1,4 +1,4 @@
-import { isGgufRepoId } from '@/services/model-compatibility';
+import { isGgufRepoId, needsWeightFormats } from '@/services/model-compatibility';
 import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
   HfModelShape,
@@ -266,7 +266,21 @@ type RawHfModel = {
   library_name?: string;
   gated?: boolean | string;
   safetensors?: { total?: number; parameters?: Record<string, number> };
+  /** Only on the model-detail response, never the list. */
+  siblings?: RawHfSibling[];
 };
+
+/** Which weight formats a repo's files hold, anywhere in the tree. Undefined without a file list. */
+function weightFormatsOf(siblings: RawHfSibling[] | undefined): HuggingFaceModel['weightFormats'] {
+  if (!Array.isArray(siblings)) {
+    return undefined;
+  }
+  const names = siblings.flatMap((file) => (typeof file.rfilename === 'string' ? [file.rfilename.toLowerCase()] : []));
+  return {
+    gguf: names.some((name) => name.endsWith('.gguf')),
+    checkpoint: names.some((name) => name.endsWith('.safetensors') || name.endsWith('.bin')),
+  };
+}
 
 /**
  * Fields requested from the list endpoint via `expand[]`. This is the complete set — `expand[]`
@@ -309,6 +323,7 @@ function mapModel(raw: RawHfModel): HuggingFaceModel {
       raw.safetensors?.parameters && Object.keys(raw.safetensors.parameters).length > 0
         ? raw.safetensors.parameters
         : undefined,
+    weightFormats: weightFormatsOf(raw.siblings),
   };
 }
 
@@ -474,6 +489,26 @@ export async function fetchHuggingFaceModel(modelId: string): Promise<HuggingFac
 }
 
 /**
+ * The model with `weightFormats` filled in when isGgufOnlyModel needs it (see needsWeightFormats) — a
+ * list-response model never carries the file list. Never throws: on any failure the model comes back
+ * unchanged, and an unknown file list keeps both engines.
+ */
+export async function withWeightFormats(model: HuggingFaceModel): Promise<HuggingFaceModel> {
+  if (!needsWeightFormats(model)) {
+    return model;
+  }
+  try {
+    const response = await http.get<{ siblings?: RawHfSibling[] }>(`${HF_API_URL}/${encodeModelPath(model.id)}`, {
+      params: { 'expand[]': 'siblings' },
+    });
+    const weightFormats = weightFormatsOf(response.data?.siblings);
+    return weightFormats ? { ...model, weightFormats } : model;
+  } catch {
+    return model;
+  }
+}
+
+/**
  * Pulls per-model engine defaults from HF config.json (context ceiling, dtype, arch, quantization)
  * and tool support from the chat template (tokenizer_config.json + standalone chat_template.jinja).
  * Returns nulls for anything missing — caller falls back to its own defaults.
@@ -599,12 +634,12 @@ export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
  * starting suggestion the user is expected to correct: `bartowski` re-publishes most popular models
  * as `<repo>-GGUF`, so we point there. Empty for a bare id with no author.
  *
- * A model id that is ALREADY a GGUF repo is returned untouched — the user picked the exact repo to
- * serve, so re-pointing it at `bartowski/<that>-GGUF` would replace a correct answer with a guess at
- * a repo that doesn't exist.
+ * A model id that is ALREADY a GGUF repo — named so, or known to be (`ggufOnly`, see isGgufOnlyModel)
+ * — is returned untouched: the user picked the exact repo to serve, so re-pointing it at
+ * `bartowski/<that>-GGUF` would replace a correct answer with a guess at a repo that doesn't exist.
  */
-export function guessGgufRepo(modelId: string): string {
-  if (isGgufRepoId(modelId)) {
+export function guessGgufRepo(modelId: string, ggufOnly = false): string {
+  if (ggufOnly || isGgufRepoId(modelId)) {
     return modelId;
   }
   const repo = getModelShortName(modelId);
@@ -680,12 +715,16 @@ function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: strin
 }
 
 /** llama.cpp launch-param defaults. Seeds a best-guess GGUF repo + common quant; user corrects both. */
-function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: string): LlamaCppParameters {
+function buildLlamaCppDefaults(
+  config: HuggingFaceModelConfig | null,
+  modelId: string,
+  ggufOnly: boolean
+): LlamaCppParameters {
   return {
     engine: 'llamacpp',
     servedModelName: getModelShortName(modelId),
     customParams: [],
-    ggufRepo: guessGgufRepo(modelId),
+    ggufRepo: guessGgufRepo(modelId, ggufOnly),
     ggufQuant: DEFAULT_GGUF_QUANT,
     // Seed the model's reported context; null lets llama.cpp use its trained default.
     contextLength: config?.maxContext ?? null,
@@ -699,14 +738,16 @@ function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: s
  * Build the launch parameters for a model + engine from its HF config, falling back to neutral
  * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
  * the fallback used for a selection whose params haven't been committed yet. The engine picks which
- * branch of ModelParameters is returned (defaults to vLLM).
+ * branch of ModelParameters is returned (defaults to vLLM). `ggufOnly`: the model repo is itself the GGUF
+ * repo llama.cpp serves (see isGgufOnlyModel), even when its id doesn't say so.
  */
 export function buildModelDefaults(
   config: HuggingFaceModelConfig | null,
   modelId: string,
-  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE
+  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE,
+  ggufOnly = false
 ): ModelParameters {
-  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId) : buildVllmDefaults(config, modelId);
+  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId, ggufOnly) : buildVllmDefaults(config, modelId);
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */

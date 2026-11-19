@@ -18,7 +18,7 @@ import {
 } from '@/services/huggingface-service';
 import { VLLM_TAG } from '@/services/inference-launch';
 import { firstQueryValue } from '@/services/inference-url';
-import { getArchitectureIncompatibility } from '@/services/model-compatibility';
+import { getArchitectureIncompatibility, isGgufOnlyModel } from '@/services/model-compatibility';
 import {
   bookedVramGb,
   customModelSizing,
@@ -406,8 +406,10 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // committed params are only merged when they match the SELECTED engine — switching engine drops the
   // old branch's fields and starts from that engine's fresh defaults (their shapes don't overlap).
   const committedParams = modelParamsByModel[modelId];
+  const modelEntry = selectedModels.find((m) => m.id === modelId);
+  const ggufOnly = !!modelEntry && isGgufOnlyModel(modelEntry);
   const initialValues = useMemo(() => {
-    const defaults = buildModelDefaults(defaultsConfig, modelId, engine);
+    const defaults = buildModelDefaults(defaultsConfig, modelId, engine, ggufOnly);
     if (committedParams && committedParams.engine === engine) {
       return { ...defaults, ...committedParams } as ModelParametersType;
     }
@@ -416,7 +418,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       return { ...defaults, maxContext: ceiling !== null ? Math.min(sizingContext, ceiling) : sizingContext };
     }
     return defaults;
-  }, [committedParams, defaultsConfig, modelId, engine, sizingContext]);
+  }, [committedParams, defaultsConfig, modelId, engine, ggufOnly, sizingContext]);
 
   // Checks the launch settings against the booked GPUs with the same per-width estimate the env picker
   // shows (customModelSizing). Only a booked width the model's heads can't split across is an `error`
@@ -528,7 +530,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         if (result) {
           // requestEngine, not the live one: `revision` was captured for it, so building defaults for
           // anything else would merge a vLLM field into a llama.cpp value set.
-          const defaults = buildModelDefaults(result, modelId, requestEngine);
+          const defaults = buildModelDefaults(result, modelId, requestEngine, ggufOnly);
           // `revision` is only set for vLLM, so `defaults` is the vLLM branch here — but TS can't
           // correlate the two, so re-assert the union type on the merged values.
           const values = (revision ? { ...defaults, revision } : defaults) as ModelParametersType;
