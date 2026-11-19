@@ -544,7 +544,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     onDurationChange(seconds);
   };
 
-  const renderEnv = ({ node, env, gpuCounts }: ListedEnv) => {
+  const renderEnv = ({ node, env }: ListedEnv) => {
     const isPriorSelection = selectedEnv?.environment.id === env.id && selectedEnv?.nodeInfo.id === node.id;
     const { min, max } = durationBounds(env);
     const durationBlockedReason =
@@ -573,7 +573,10 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
           selected={isPriorSelection}
           nodeInfo={node}
           onSelect={(gpuSelection, pickedEnv, gpuPlan) => handleSelect(node, pickedEnv, gpuSelection, gpuPlan)}
-          fitSummary={gpuCounts ? <FitSummary gpuCounts={gpuCounts} /> : undefined}
+          fitSummary={(liveEnv) => {
+            const liveCounts = fitGpuCounts(liveEnv);
+            return liveCounts ? <FitSummary gpuCounts={liveCounts} /> : undefined;
+          }}
         />
       </div>
     );
