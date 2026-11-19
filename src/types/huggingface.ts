@@ -47,6 +47,12 @@ export type HuggingFaceModelConfig = {
   attention: HfTpConfig | null;
   /** KV-cache sizing fields (see HfModelShape). */
   shape: HfModelShape;
+  /**
+   * On-disk size in bytes of the weight files vLLM loads (top-level `*.safetensors` at the revision) —
+   * the exact weight footprint for any packing, unlike the safetensors parameter counts. Null when
+   * the file list can't be read or a size is missing.
+   */
+  weightBytes: number | null;
 };
 
 export type ModelQuantization = 'none' | 'fp8' | 'awq' | 'gptq';
@@ -213,8 +219,9 @@ export type HuggingFaceModel = {
    */
   paramCount?: number;
   /**
-   * The same safetensors index split by dtype (`{ BF16: 7.2e9, F8_E4M3: … }`) — element counts, so a
-   * packed int4 checkpoint shows its I32 containers. Sizes weights far better than one total × a guess.
+   * The same safetensors index split by dtype (`{ BF16: 7.2e9, F8_E4M3: … }`). Element counts for plain
+   * checkpoints, but HF reports a packed int4 checkpoint's I32 containers UNPACKED (eight 4-bit weights
+   * counted per int32), so dtype size × count overstates GPTQ/AWQ weights ~8x.
    */
   paramsByDtype?: Record<string, number>;
 };

@@ -216,6 +216,44 @@ async function fetchModelTextFile(
   return response.data;
 }
 
+type RawHfSibling = { rfilename?: string; size?: number };
+
+/**
+ * Total size in bytes of the safetensors weights vLLM loads at `revision`: the top-level `*.safetensors`
+ * files (subfolders hold other formats or components, e.g. `original/`). Mistral repos ship the same
+ * weights twice, as HF shards and as `consolidated*.safetensors`; the consolidated copy is dropped
+ * whenever shards exist. Null on any failure or a file without a size — sizing then falls back to
+ * parameter counts. Never throws: config.json's own fetch reports auth errors.
+ */
+async function fetchSafetensorsBytes(modelId: string, token?: string, revision = 'main'): Promise<number | null> {
+  let response;
+  try {
+    response = await http.get<{ siblings?: RawHfSibling[] }>(
+      `${HF_API_URL}/${encodeModelPath(modelId)}/revision/${encodeURIComponent(revision || 'main')}`,
+      {
+        params: { blobs: true, 'expand[]': 'siblings' },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        validateStatus: () => true,
+      }
+    );
+  } catch {
+    return null;
+  }
+  if (response.status < 200 || response.status >= 300 || !Array.isArray(response.data?.siblings)) {
+    return null;
+  }
+  const weights = response.data.siblings.filter(
+    (file) =>
+      typeof file.rfilename === 'string' && !file.rfilename.includes('/') && file.rfilename.endsWith('.safetensors')
+  );
+  const shards = weights.filter((file) => !file.rfilename?.startsWith('consolidated'));
+  const loaded = shards.length > 0 ? shards : weights;
+  if (loaded.length === 0 || loaded.some((file) => typeof file.size !== 'number' || file.size <= 0)) {
+    return null;
+  }
+  return loaded.reduce((total, file) => total + (file.size ?? 0), 0);
+}
+
 type RawHfModel = {
   id: string;
   author?: string;
@@ -447,11 +485,12 @@ export async function fetchHuggingFaceModelConfig(
   token?: string,
   revision?: string
 ): Promise<HuggingFaceModelConfig> {
-  const [config, tokenizerConfig, chatTemplateFile] = await Promise.all([
+  const [config, tokenizerConfig, chatTemplateFile, weightBytes] = await Promise.all([
     fetchModelFile<RawHfConfig>(modelId, 'config.json', token, revision),
     fetchModelFile<RawHfTokenizerConfig>(modelId, 'tokenizer_config.json', token, revision),
     // Some models ship the chat template as a standalone file instead of inside tokenizer_config.json.
     fetchModelTextFile(modelId, 'chat_template.jinja', token, revision),
+    fetchSafetensorsBytes(modelId, token, revision),
   ]);
 
   const supportsTools =
@@ -468,6 +507,7 @@ export async function fetchHuggingFaceModelConfig(
     supportsTools,
     attention: readAttentionShape(config),
     shape: readModelShape(config),
+    weightBytes,
   };
 }
 
