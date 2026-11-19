@@ -313,14 +313,18 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
   // What the listed envs must satisfy: the custom-model estimate (`gpuDemand`) when the flow has one,
   // otherwise the template/package declared VRAM requirement. A `none` demand fits every env.
   const listDemand = useMemo<GpuDemand>(() => gpuDemand ?? demandOf(declaredResources), [gpuDemand, declaredResources]);
-  /** Hidden by the memory filter: no GPU group here could ever hold the recommended/estimated VRAM. */
+  /**
+   * Hidden by the memory filter: no GPU group here could ever hold the recommended/estimated VRAM. A
+   * custom model's GPU-count demand hides only for vLLM, which can't run without a GPU: llama.cpp also
+   * serves on CPU, so a GPU-less env stays listed for it.
+   */
   const fitsDemand = useMemo(() => {
-    if (listDemand.kind !== 'vram') {
+    if (listDemand.kind === 'none' || (listDemand.kind === 'units' && engine !== 'vllm')) {
       return () => true;
     }
     return (env: ComputeEnvironment) =>
       planGpuDemand({ environment: env, demand: listDemand, assumeAllFree: true }).length > 0;
-  }, [listDemand]);
+  }, [listDemand, engine]);
 
   const branch = useMemo(() => resolveInferenceBranch(flowType, selectedTemplate), [flowType, selectedTemplate]);
 
@@ -365,21 +369,23 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
 
   /**
    * GPU counts an environment's free cards can book the estimate as, for its card's "Fits as …" line;
-   * null (no line) when there is no estimate or none of its GPUs report their VRAM, so it can't be checked.
+   * empty when its cards are too small even with all of them free. Null (no line) when there is no
+   * estimate, none of its GPUs report their VRAM, or its cards would hold the model but too few are free:
+   * that's the card's "All in use", not a size problem.
    */
   const fitGpuCounts = useCallback(
-    (env: ComputeEnvironment): number[] | null =>
-      isCustomModelFlow && sizingRequirement && gpuTypesOf(env).some((type) => type.vramGb !== undefined)
-        ? [
-            ...new Set(
-              planGpuDemand({ environment: env, demand: { kind: 'vram', requirement: sizingRequirement } }).map(
-                (c) => c.layout?.gpuCount ?? 0
-              )
-            ),
-          ]
-            .filter((count) => count > 0)
-            .sort((x, y) => x - y)
-        : null,
+    (env: ComputeEnvironment): number[] | null => {
+      if (!isCustomModelFlow || !sizingRequirement || !gpuTypesOf(env).some((type) => type.vramGb !== undefined)) {
+        return null;
+      }
+      const demand: GpuDemand = { kind: 'vram', requirement: sizingRequirement };
+      const counts = (assumeAllFree: boolean) =>
+        [...new Set(planGpuDemand({ environment: env, demand, assumeAllFree }).map((c) => c.layout?.gpuCount ?? 0))]
+          .filter((count) => count > 0)
+          .sort((x, y) => x - y);
+      const free = counts(false);
+      return free.length === 0 && counts(true).length > 0 ? null : free;
+    },
     [isCustomModelFlow, sizingRequirement]
   );
 
