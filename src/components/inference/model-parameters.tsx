@@ -418,26 +418,30 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     return defaults;
   }, [committedParams, defaultsConfig, modelId, engine, sizingContext]);
 
-  // Whether the launch settings still fit the booked GPUs, by the same per-width estimate the env picker
-  // listed environments with (customModelSizing) — blocking, like that filter. Context, precision,
-  // quantization and the memory share all move the estimate, so this re-runs on every edit. A misfit
-  // names the largest context that would fit, or says none does with these settings. Also blocks a booked
-  // width the model's heads can't split across (vLLM refuses to start).
+  // Checks the launch settings against the booked GPUs with the same per-width estimate the env picker
+  // shows (customModelSizing). Only a booked width the model's heads can't split across is an `error`
+  // (vLLM refuses to start); a VRAM misfit is a `warning`, never blocking, since it rests on an estimate.
+  // Context, precision, quantization and the memory share all move the estimate, so this re-runs on every
+  // edit. A misfit names the largest context that would fit, or says none does with these settings.
   const selectedModel = selectedModels.find((m) => m.id === modelId);
-  const fitError = useCallback(
-    (values: ModelParametersType): string | null => {
+  const fitCheck = useCallback(
+    (values: ModelParametersType): { error: string | null; warning: string | null } => {
+      const ok = { error: null, warning: null };
       if (values.engine !== 'vllm' || isPackageHandoff || !selectedModel || !selectedEnv || bookedGpus < 1) {
-        return null;
+        return ok;
       }
       const sizingFor = (params: ModelParametersType) =>
         customModelSizing({ model: selectedModel, config, params, engine: 'vllm' });
       const sizing = sizingFor(values);
       if (sizing.widths && !sizing.widths.includes(bookedGpus)) {
-        return `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM would refuse to start. Go back and book one of those counts.`;
+        return {
+          error: `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM would refuse to start. Go back and book one of those counts.`,
+          warning: null,
+        };
       }
       const plan = selectedEnv.gpuPlan;
       if (!sizing.requirement || !plan) {
-        return null;
+        return ok;
       }
       const fits = (params: ModelParametersType) => {
         const requirement = sizingFor(params).requirement;
@@ -447,7 +451,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         );
       };
       if (fits(values)) {
-        return null;
+        return ok;
       }
       const booked = bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection);
       const gpus = `the ${bookedGpus} booked GPU${bookedGpus === 1 ? '' : 's'}${booked === null ? '' : ` (${Math.floor(booked)} GB)`}`;
@@ -458,9 +462,13 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         contextFloor,
         ceiling
       );
-      return fittingContext !== null
-        ? `Doesn't fit ${gpus} at this context: estimated to need ${need}. Lower Max context to ${fittingContext} or less, or go back and book more GPUs.`
-        : `Doesn't fit ${gpus} with these settings at any context: estimated to need ${need}. Use a quantized variant or FP8 quantization, or go back and book more GPUs.`;
+      return {
+        error: null,
+        warning:
+          fittingContext !== null
+            ? `May not fit ${gpus} at this context: estimated to need ${need}. Lowering Max context to ${fittingContext} or less, or booking more GPUs, should fit. You can still continue.`
+            : `May not fit ${gpus} with these settings at any context: estimated to need ${need}. A quantized variant, FP8 quantization or more GPUs should fit. You can still continue.`,
+      };
     },
     [isPackageHandoff, selectedModel, selectedEnv, bookedGpus, config, contextCeiling, contextFloor]
   );
@@ -470,16 +478,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     initialValues,
     validate: (v) => {
       const errors = validateParams(v, contextCeiling, contextFloor, bookedGpus);
-      const fit = fitError(v);
-      if (fit) {
-        errors.vramFit = fit;
+      const widthError = fitCheck(v).error;
+      if (widthError) {
+        errors.gpuWidth = widthError;
       }
       return errors;
     },
     onSubmit: () => {},
   });
-  // Shown as soon as it applies, not only after a submit: it explains why Continue is blocked.
-  const vramFitError = useMemo(() => fitError(formik.values), [fitError, formik.values]);
+  // Shown as soon as it applies, not only after a submit: the error explains why Continue is blocked,
+  // the warning that the estimate expects the launch to run out of GPU memory.
+  const fit = useMemo(() => fitCheck(formik.values), [fitCheck, formik.values]);
 
   // Show a field error only once the user has touched it. Typed loosely (string) because the field
   // set differs per engine branch — the form values are a discriminated union.
@@ -796,9 +805,14 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               valueLabelFormat={(value) => String(value)}
             />
           )}
-          {vramFitError && (
+          {fit.error && (
             <div className="textError" role="alert">
-              {vramFitError}
+              {fit.error}
+            </div>
+          )}
+          {fit.warning && (
+            <div className="textWarningDarker" role="status">
+              {fit.warning}
             </div>
           )}
           <Select<KvCacheDtype>

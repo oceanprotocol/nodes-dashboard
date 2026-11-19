@@ -208,3 +208,8 @@
   color: var(--success-darker);
   font-size: 16px !important;
 }
+
+.noFitWarningIcon {
+  color: var(--warning-darker);
+  font-size: 16px !important;
+}

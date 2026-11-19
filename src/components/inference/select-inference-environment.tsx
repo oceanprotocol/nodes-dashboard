@@ -5,10 +5,8 @@ import useCustomModelSizing from '@/components/hooks/use-custom-model-sizing';
 import { GpuSelection } from '@/components/hooks/use-inference-allocation';
 import CustomModelSizingPanel, {
   ContextChoice,
-  CustomModelSizingPanelHandle,
   FitSummary,
   formatTokensShort,
-  NoFitCard,
   SizingLayout,
 } from '@/components/inference/custom-model-sizing-panel';
 import DeclaredResources from '@/components/inference/declared-resources';
@@ -36,6 +34,7 @@ import {
   GpuDemand,
   gpuGroupKey,
   GpuPlan,
+  gpuTypesOf,
   isBenchmarkEnv,
   isGpuResource,
   layoutCardGb,
@@ -50,7 +49,7 @@ import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { grantableAmount, type TemplateResourceRequirement } from '@oceanprotocol/lib';
 import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './select-inference-environment.module.css';
 
@@ -207,8 +206,8 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
    * A hand-picked custom model declares nothing, so its constraints are derived here (the flow is capped
    * at one model): the tensor-parallel widths its attention heads allow — a HARD filter, an illegal count
    * (e.g. 3 on a 32-head model) is never offered — and an estimated VRAM requirement for its launch
-   * settings, also HARD, as a template's recommendation is: environments and layouts that can't hold it
-   * are not listed. The estimate is sized for the context the user picks here (the `ctx` query param,
+   * settings, INFORMATIONAL only: every environment stays listed and bookable, and each card says whether
+   * its free GPUs hold the estimate. The estimate is sized for the context the user picks here (the `ctx` query param,
    * default the model's own maximum), since the KV cache at full context is often most of it; the
    * config step pre-fills Max context with that choice. Unused once a template or package declares a
    * recommendation.
@@ -279,7 +278,6 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
         : null,
     [sizingRequirement]
   );
-  const sizingPanelRef = useRef<CustomModelSizingPanelHandle>(null);
   const onSizingContextChange = (value: string) => {
     const { [SIZING_CONTEXT_QUERY_KEY]: _dropped, ...rest } = router.query;
     // Shallow: the URL carries the choice to the config step (and across a refresh); `ctx` is not part
@@ -296,14 +294,11 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     DURATION_PRESETS.some((preset) => preset.seconds === jobDurationSeconds) ? 'preset' : 'custom'
   );
   const durationError = !Number.isFinite(durationDraft) || durationDraft < 1 ? 'Enter a length above zero.' : undefined;
-  const gpuDemand = useMemo<GpuDemand | undefined>(() => {
-    if (!isCustomModelFlow || !customSizing) {
-      return undefined;
-    }
-    return customSizing.requirement
-      ? { kind: 'vram', requirement: customSizing.requirement }
-      : { kind: 'units', widths: customSizing.widths };
-  }, [isCustomModelFlow, customSizing]);
+  // A custom model books by GPU count alone (the widths its heads allow); its VRAM estimate never filters.
+  const gpuDemand = useMemo<GpuDemand | undefined>(
+    () => (isCustomModelFlow && customSizing ? { kind: 'units', widths: customSizing.widths } : undefined),
+    [isCustomModelFlow, customSizing]
+  );
   // What the listed envs must satisfy: the custom-model estimate (`gpuDemand`) when the flow has one,
   // otherwise the template/package declared VRAM requirement. A `none` demand fits every env.
   const listDemand = useMemo<GpuDemand>(() => gpuDemand ?? demandOf(declaredResources), [gpuDemand, declaredResources]);
@@ -357,17 +352,22 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
     return result;
   }, [nodeEnvs, isListedEnv]);
 
-  const listedEnvCount = filteredNodeEnvs.reduce((sum, node) => sum + node.computeEnvironments.environments.length, 0);
-  /** The custom-model estimate is in and nothing listed holds it: the empty state points at the context. */
-  const noEnvFitsEstimate =
-    isCustomModelFlow && !!sizingRequirement && !sizingLoading && !loading && listedEnvCount === 0;
-  /** GPU counts an environment's free cards can book the estimate as, for its card's "Fits as …" line. */
-  const fitGpuCounts = (env: ComputeEnvironment): number[] =>
-    gpuDemand?.kind === 'vram'
-      ? [...new Set(planGpuDemand({ environment: env, demand: gpuDemand }).map((c) => c.layout?.gpuCount ?? 0))]
+  /**
+   * GPU counts an environment's free cards can book the estimate as, for its card's "Fits as …" line;
+   * null (no line) when none of its GPUs report their VRAM, so the estimate can't be checked there.
+   */
+  const fitGpuCounts = (env: ComputeEnvironment): number[] | null =>
+    sizingRequirement && gpuTypesOf(env).some((type) => type.vramGb !== undefined)
+      ? [
+          ...new Set(
+            planGpuDemand({ environment: env, demand: { kind: 'vram', requirement: sizingRequirement } }).map(
+              (c) => c.layout?.gpuCount ?? 0
+            )
+          ),
+        ]
           .filter((count) => count > 0)
           .sort((x, y) => x - y)
-      : [];
+      : null;
 
   // Keep paging while the visible list is empty. loadMoreEnvs itself skips over pages that contribute
   // nothing bookable, so this fires once per stall rather than once per server page.
@@ -489,11 +489,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
               contextUnknown={contextUnknown}
               contextValue={sizingContext === null ? DEFAULT_CONTEXT_OPTION : String(sizingContext)}
               gaps={customSizing?.gaps}
-              highlightContext={noEnvFitsEstimate}
               layouts={sizingLayouts}
               loading={sizingLoading}
               onContextChange={onSizingContextChange}
-              ref={sizingPanelRef}
               widths={customSizing?.widths ?? null}
             />
           )}
@@ -587,7 +585,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                   'Adjust the GPU count on an environment if needed, then start it.'
                 )}
                 {isCustomModelFlow && sizingRequirement && (
-                  <div>Environments listed can hold this model at {sizedContextLabel} context.</div>
+                  <div>
+                    Each environment shows whether it is estimated to hold this model at {sizedContextLabel} context.
+                  </div>
                 )}
               </div>
               {filteredNodeEnvs.map((node) =>
@@ -625,19 +625,16 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                         onSelect={(gpuSelection, pickedEnv, gpuPlan) =>
                           handleSelect(node, pickedEnv, gpuSelection, gpuPlan)
                         }
-                        fitSummary={
-                          isCustomModelFlow && sizingRequirement ? (
-                            <FitSummary gpuCounts={fitGpuCounts(env)} />
-                          ) : undefined
-                        }
+                        fitSummary={(() => {
+                          const gpuCounts = isCustomModelFlow ? fitGpuCounts(env) : null;
+                          return gpuCounts ? <FitSummary gpuCounts={gpuCounts} /> : undefined;
+                        })()}
                       />
                     </div>
                   );
                 })
               )}
             </>
-          ) : noEnvFitsEstimate ? (
-            <NoFitCard context={sizedContextLabel} onChooseShorter={() => sizingPanelRef.current?.focusContext()} />
           ) : (
             <p className="alignSelfCenter">{loading ? 'Loading environments…' : 'No environments found'}</p>
           )}

@@ -9,6 +9,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import SubjectIcon from '@mui/icons-material/Subject';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
@@ -147,8 +148,8 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
           <div className={styles.unestimated}>
             <strong>Can’t estimate this model</strong>
             <p>
-              Its repo lists no safetensors parameter count, so every environment is shown, whatever its memory. Check
-              the model card for its size before you book.
+              Its repo lists no safetensors parameter count, so no environment is checked against its memory. Check the
+              model card for its size before you book.
             </p>
           </div>
         );
@@ -224,7 +225,7 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
                     <span className={styles.wide}>
                       Per GPU, for the weights plus the context cache.
                       <br />
-                      Environments that can hold any one of these layouts are listed.
+                      An estimate: each environment says whether its free GPUs hold one of these layouts.
                     </span>
                     <span className={styles.narrow}>
                       Any one layout works. Per GPU, for the weights plus the context cache.
@@ -287,10 +288,18 @@ export function NoFitCard({ context, onChooseShorter }: { context: string; onCho
   );
 }
 
-/** "Fits as 1, 2 or 4 GPUs" — the layouts an environment's free GPUs can book, for its card. */
+/**
+ * "Fits as 1, 2 or 4 GPUs" — the layouts an environment's free GPUs can book, for its card. No layout is
+ * a warning, not a block: the estimate is advisory and the environment stays bookable.
+ */
 export function FitSummary({ gpuCounts }: { gpuCounts: number[] }) {
   if (gpuCounts.length === 0) {
-    return null;
+    return (
+      <div className={styles.fitSummary}>
+        <WarningAmberIcon aria-hidden className={styles.noFitWarningIcon} />
+        Free GPUs here are estimated to be too small for this model
+      </div>
+    );
   }
   const last = gpuCounts[gpuCounts.length - 1];
   return (
