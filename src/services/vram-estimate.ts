@@ -26,8 +26,9 @@ import {
  * picker lets the user choose the context to size for: the KV cache at the model's full context is
  * often most of the estimate.
  *
- * weights = paramCount × bytes per parameter, from the launch quantization if one is set, else the
- * checkpoint's own quantization, else its dtype (bf16/fp16 = 2, fp32 = 4).
+ * weights = the safetensors files' size when they load as stored, else paramCount × bytes per parameter,
+ * from the launch quantization if one is set, else the checkpoint's own quantization, else its dtype
+ * (bf16/fp16 = 2, fp32 = 4).
  */
 function bytesPerParam({
   quantization,
@@ -51,6 +52,9 @@ function bytesPerParam({
   const effectiveDtype = dtype && dtype !== 'auto' ? dtype : (torchDtype ?? '').toLowerCase();
   return effectiveDtype.includes('32') ? 4 : 2;
 }
+
+/** Safetensors dtypes that quantized checkpoints pack several low-bit weights into (GPTQ/AWQ I32, bnb U8). */
+const PACKED_CONTAINER_DTYPES = ['I32', 'U32', 'I16', 'U16', 'I8', 'U8'];
 
 /**
  * The context the env picker sizes a custom model for, carried between steps in the `ctx` query param
@@ -195,11 +199,16 @@ export function customModelSizing({
   const quantization = vllm?.quantization ?? 'none';
   const dtype = vllm?.dtype ?? 'auto';
   const checkpointQuant = mapQuantization(config?.quantizationMethod ?? null);
-  // The safetensors per-dtype counts describe the weights as stored; they are what loads unless the
-  // launch re-quantizes them or casts them to another dtype.
+  // The weights load as stored unless the launch re-quantizes them or casts them to another dtype. As
+  // stored, their file size IS the footprint; failing that, the per-dtype counts — except for a quantized
+  // checkpoint with integer containers, whose counts HF reports unpacked (see paramsByDtype).
   const asStored =
     (quantization === 'none' || quantization === checkpointQuant) && (dtype === 'auto' || !!checkpointQuant);
-  const byDtype = asStored ? model.paramsByDtype : undefined;
+  const storedBytes = asStored ? (config?.weightBytes ?? null) : null;
+  const packedCounts =
+    !!config?.quantizationMethod &&
+    Object.keys(model.paramsByDtype ?? {}).some((key) => PACKED_CONTAINER_DTYPES.includes(key.toUpperCase()));
+  const byDtype = asStored && storedBytes === null && !packedCounts ? model.paramsByDtype : undefined;
   const contextFromParams = vllm?.maxContext && vllm.maxContext > 0 ? vllm.maxContext : null;
   const contextTokens =
     (contextOverride && contextOverride > 0 ? contextOverride : null) ??
@@ -212,15 +221,19 @@ export function customModelSizing({
   try {
     const estimate = estimateHfSizingProfile({
       paramsByDtype: byDtype,
-      totalParams: model.paramCount,
-      bytesPerParam: byDtype
-        ? undefined
-        : bytesPerParam({
-            quantization,
-            dtype,
-            checkpointQuantization: config?.quantizationMethod,
-            torchDtype: config?.torchDtype,
-          }),
+      // Stored bytes go in as a count of one-byte "parameters": ocean.js takes no byte total itself.
+      totalParams: storedBytes ?? model.paramCount,
+      bytesPerParam:
+        storedBytes !== null
+          ? 1
+          : byDtype
+            ? undefined
+            : bytesPerParam({
+                quantization,
+                dtype,
+                checkpointQuantization: config?.quantizationMethod,
+                torchDtype: config?.torchDtype,
+              }),
       ...kvCacheShape(config?.shape, contextTokens ?? FALLBACK_CONTEXT_TOKENS),
       kvLoraRank: config?.shape.kvLoraRank ?? undefined,
       qkRopeHeadDim: config?.shape.qkRopeHeadDim ?? undefined,
