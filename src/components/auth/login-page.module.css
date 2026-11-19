@@ -1,8 +1,71 @@
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100svh;
+
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  padding: 28px 16px 24px;
+
+  @media (min-width: 960px) {
+    padding: 28px 48px;
+  }
+}
+
+.brand {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.logo {
+  display: block;
+  height: 54px;
+  width: auto;
+}
+
+.beta {
+  background: var(--accent2);
+  border-radius: 16px;
+  color: var(--accent2-contrast);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 2px 12px;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.right {
+  display: none;
+
+  @media (min-width: 960px) {
+    align-self: start;
+    display: block;
+    height: 100svh;
+    padding: 16px 16px 16px 0;
+    position: sticky;
+    top: 0;
+  }
+}
+
 .root {
+  align-items: center;
   display: flex;
   flex: 1;
   justify-content: center;
-  padding: 64px 16px 96px;
+  padding: 32px 0;
 }
 
 .step {

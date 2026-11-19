@@ -1,0 +1,202 @@
+{
+  "profile": {
+    "label": "About you",
+    "title": "What best",
+    "titleEmphasis": "describes you?",
+    "lead": "Pick the closest one. We use it to open the right templates and show prices that matter to you.",
+    "options": [
+      {
+        "id": "creator",
+        "lane": "maker",
+        "title": "Content creator or influencer",
+        "subtitle": "Reels, shorts, posts, music",
+        "slide": "ugc"
+      },
+      {
+        "id": "seller",
+        "lane": "maker",
+        "title": "Online seller",
+        "subtitle": "Etsy, Shopify, Vinted, eBay",
+        "slide": "product"
+      },
+      {
+        "id": "brand",
+        "lane": "maker",
+        "title": "Brand or marketer",
+        "subtitle": "Ads, campaigns, product launches",
+        "slide": "ad"
+      },
+      {
+        "id": "agency",
+        "lane": "maker",
+        "title": "Agency or UGC studio",
+        "subtitle": "Client work, run in batches",
+        "slide": "ugc"
+      },
+      {
+        "id": "gamedev",
+        "lane": "maker",
+        "title": "Game dev or musician",
+        "subtitle": "Soundtracks, trailers, store assets",
+        "slide": "music"
+      },
+      {
+        "id": "founder",
+        "lane": "maker",
+        "title": "Founder or freelancer",
+        "subtitle": "Landing pages, MVPs, side projects",
+        "slide": "ad"
+      },
+      {
+        "id": "dev",
+        "lane": "builder",
+        "title": "Developer",
+        "subtitle": "APIs, apps, coding agents",
+        "slide": "builder"
+      },
+      {
+        "id": "ml",
+        "lane": "builder",
+        "title": "AI researcher or ML engineer",
+        "subtitle": "Open models, benchmarks, fine-tunes",
+        "slide": "builder"
+      },
+      {
+        "id": "other",
+        "lane": null,
+        "title": "Something else",
+        "subtitle": "We will show you both sides",
+        "slide": null
+      }
+    ]
+  },
+  "goals": {
+    "label": "What you want to do",
+    "title": "What do you want to",
+    "titleEmphasis": "do first?",
+    "lead": "Pick {min} or {max}. You will always see the full price before you pay.",
+    "min": 2,
+    "max": 3,
+    "tabs": [
+      {
+        "id": "maker",
+        "label": "Create something",
+        "options": [
+          {
+            "id": "product",
+            "slide": "product",
+            "title": "Product Photo Studio",
+            "subtitle": "1 photo in. Studio shots, a 360° spin, a poster and a video out."
+          },
+          {
+            "id": "ad",
+            "slide": "ad",
+            "title": "Ad Campaign Generator",
+            "subtitle": "5 photos in. Ad images, posters and a vertical video out."
+          },
+          {
+            "id": "ugc",
+            "slide": "ugc",
+            "title": "UGC Reel Maker",
+            "subtitle": "One character and one voice across up to 8 shots.",
+            "meta": ["~$0.72 / 30s · ~20 min"]
+          },
+          {
+            "id": "video",
+            "slide": "ugc",
+            "title": "Video Generator",
+            "subtitle": "Text, a photo or references in. Video with audio out."
+          },
+          {
+            "id": "music",
+            "slide": "music",
+            "title": "Music Generator",
+            "subtitle": "One-line brief in. A stereo song with vocals out.",
+            "meta": ["MiniMax Music 3"],
+            "isNew": true
+          },
+          {
+            "id": "landing",
+            "slide": null,
+            "title": "Landing Studio",
+            "subtitle": "A brief in. Three landing directions and an animated hero out."
+          }
+        ]
+      },
+      {
+        "id": "builder",
+        "label": "Run a model or app",
+        "options": [
+          {
+            "id": "endpoint",
+            "slide": "builder",
+            "title": "OpenAI-compatible endpoint",
+            "subtitle": "Pin a curated open model, like Qwen3.8-27B, on a dedicated GPU.",
+            "meta": ["H200 from $2.16/hr"]
+          },
+          {
+            "id": "custom",
+            "slide": "builder",
+            "title": "Custom Hugging Face model",
+            "subtitle": "Search any model and serve it on vLLM."
+          },
+          {
+            "id": "agent",
+            "slide": "builder",
+            "title": "Coding agent",
+            "subtitle": "A persistent workspace with long context.",
+            "logos": ["hermes", "opencode", "openclaw"]
+          },
+          {
+            "id": "app",
+            "slide": "builder",
+            "title": "Run an app",
+            "subtitle": "ComfyUI, Open WebUI and more on a GPU that is yours.",
+            "logos": ["comfyui"]
+          },
+          {
+            "id": "notebook",
+            "slide": "builder",
+            "title": "Notebook or benchmark",
+            "subtitle": "JupyterLab for experiments and evals.",
+            "logos": ["jupyter"]
+          }
+        ]
+      }
+    ]
+  },
+  "source": {
+    "label": "How you found us",
+    "title": "How did you",
+    "titleEmphasis": "hear about us?",
+    "lead": "Optional, but it helps us find more people like you.",
+    "detailPlaceholder": "@handle, name or link",
+    "options": [
+      { "id": "x", "label": "X" },
+      { "id": "youtube", "label": "YouTube" },
+      { "id": "discord", "label": "Discord" },
+      { "id": "newsletter", "label": "Newsletter" },
+      { "id": "google", "label": "Google search" },
+      { "id": "reddit", "label": "Reddit" },
+      { "id": "huggingface", "label": "Hugging Face" },
+      { "id": "github", "label": "GitHub" },
+      { "id": "linkedin", "label": "LinkedIn" },
+      { "id": "instagram-tiktok", "label": "Instagram or TikTok" },
+      { "id": "creator", "label": "A creator or ambassador", "detail": "Who? (optional)" },
+      { "id": "friend", "label": "Friend or colleague", "detail": "Who? (optional)" },
+      { "id": "press", "label": "Podcast or press" },
+      { "id": "other", "label": "Other", "detail": "Tell us where (optional)" }
+    ]
+  },
+  "done": {
+    "title": "You are",
+    "titleEmphasis": "in.",
+    "lead": "Opening your personal dashboard. If you're not automatically redirected click the button below.",
+    "offer": "Your first run is on us.",
+    "cta": {
+      "maker": "Start Creating",
+      "builder": "Start a Session",
+      "default": "Open Dashboard"
+    }
+  }
+}

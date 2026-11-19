@@ -1,7 +1,9 @@
+import Logo from '@/assets/logo.svg';
 import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
 import { isAlchemyMigrationUser, needsEmbeddedWallet } from '@/lib/embedded-wallet';
+import { fetchOnboardingAnswers } from '@/lib/onboarding';
 import { LOGIN_PATH, useOceanAccount } from '@/lib/use-ocean-account';
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 import GoogleIcon from '@mui/icons-material/Google';
@@ -18,11 +20,14 @@ import {
   useSignupWithPasskey,
   type User,
 } from '@privy-io/react-auth';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 import styles from './login-page.module.css';
+import LoginShowcase, { ShowcaseFocus } from './login-showcase';
+import OnboardingSteps from './onboarding-steps';
 import WalletList from './wallet-list';
 
 type Method = 'email' | 'google' | 'passkey' | 'passkey-signup';
@@ -53,6 +58,19 @@ const LoginPage = () => {
   const [pending, setPending] = useState<Method | null>(null);
   const [resent, setResent] = useState(false);
   const [showWallets, setShowWallets] = useState(false);
+  const [showcaseFocus, setShowcaseFocus] = useState<ShowcaseFocus | null>(null);
+  const [showcaseLead, setShowcaseLead] = useState<string | null>(null);
+
+  const connectedAddress = account.isConnected ? account.address : undefined;
+  const onboarding = useQuery({
+    enabled: !!connectedAddress,
+    queryFn: () => fetchOnboardingAnswers(connectedAddress as string),
+    queryKey: ['onboarding', connectedAddress],
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+  const needsOnboarding = !!connectedAddress && onboarding.isSuccess && !onboarding.data;
+  const onboardingSettled = onboarding.isSuccess || onboarding.isError;
 
   const fail = useCallback((message: string) => {
     toast.error(message);
@@ -130,12 +148,12 @@ const LoginPage = () => {
 
   const redirected = useRef(false);
   useEffect(() => {
-    if (!account.isConnected || !router.isReady || redirected.current) {
+    if (!account.isConnected || !router.isReady || redirected.current || !onboardingSettled || needsOnboarding) {
       return;
     }
     redirected.current = true;
     router.replace(getSafeNext(router.query.next));
-  }, [account.isConnected, router]);
+  }, [account.isConnected, needsOnboarding, onboardingSettled, router]);
 
   const isSubmittingCode = emailState.status === 'submitting-code';
   const submittedCode = useRef<string | null>(null);
@@ -207,8 +225,39 @@ const LoginPage = () => {
     setCodeError(undefined);
   };
 
+  const renderShell = (content: ReactNode) => (
+    <div className={styles.shell}>
+      <section aria-label="Sign in" className={styles.left}>
+        <div className={styles.brand}>
+          <Link aria-label="Ocean Network home" href="/">
+            <Logo className={styles.logo} />
+          </Link>
+          <span className={styles.beta}>BETA</span>
+        </div>
+        <div className={styles.main}>{content}</div>
+      </section>
+      <aside aria-label="Featured templates" className={styles.right}>
+        <LoginShowcase focus={showcaseFocus} lead={showcaseLead} />
+      </aside>
+    </div>
+  );
+
+  if (needsOnboarding && connectedAddress) {
+    return renderShell(
+      <OnboardingSteps
+        address={connectedAddress}
+        nextPath={getSafeNext(router.query.next)}
+        onFocusSlide={(id) => setShowcaseFocus({ id })}
+        onLeadSlide={(id) => {
+          setShowcaseLead(id);
+          setShowcaseFocus(null);
+        }}
+      />
+    );
+  }
+
   if (account.isConnected || finishing || oauthState.status === 'loading' || (isMigrating && !migrationDismissed)) {
-    return (
+    return renderShell(
       <div className={styles.root}>
         <div className={styles.status} role="status">
           <CircularProgress size={32} />
@@ -219,7 +268,7 @@ const LoginPage = () => {
   }
 
   if (codeSentTo) {
-    return (
+    return renderShell(
       <div className={styles.root}>
         <div className={styles.step}>
           <h1>
@@ -256,7 +305,7 @@ const LoginPage = () => {
   const privyUnavailable = !!loginOptions?.privyUnavailable;
   const privyDisabled = !privyReady || !!pending;
 
-  return (
+  return renderShell(
     <div className={styles.root}>
       <div className={styles.step}>
         <h1>
