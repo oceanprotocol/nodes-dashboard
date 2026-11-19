@@ -4,6 +4,7 @@ import {
   findGoal,
   findProfile,
   findSource,
+  getOnboardingDestination,
   Lane,
   ONBOARDING_QUESTIONS,
   SOURCE_DETAIL_MAX_LENGTH,
@@ -38,7 +39,7 @@ const Tick = () => (
 
 type OnboardingStepsProps = {
   address: string;
-  nextPath: string;
+  nextPath: string | null;
   onFocusSlide: (slide: string) => void;
   onLeadSlide: (slide: string | null) => void;
 };
@@ -54,13 +55,15 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
   const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState<Lane>('maker');
 
+  const destination = nextPath ?? getOnboardingDestination(goals);
+
   useEffect(() => {
     if (step !== 'done') {
       return;
     }
-    const timer = setTimeout(() => router.replace(nextPath), DONE_REDIRECT_MS);
+    const timer = setTimeout(() => router.replace(destination), DONE_REDIRECT_MS);
     return () => clearTimeout(timer);
-  }, [nextPath, router, step]);
+  }, [destination, router, step]);
 
   const selectProfile = (id: string) => {
     const option = findProfile(id);
@@ -311,7 +314,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
         <div className={styles.offer}>{DONE.offer}</div>
         <div className={styles.actions}>
           <span />
-          <Button color="accent1" href={nextPath} size="lg">
+          <Button color="accent1" href={destination} size="lg">
             {DONE.cta[lane ?? 'default']}
           </Button>
         </div>

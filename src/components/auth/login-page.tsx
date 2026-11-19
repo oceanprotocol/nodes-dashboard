@@ -36,12 +36,14 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const EMAIL_HINT = 'We will send you a 6-digit code. No password to remember.';
 const SIGN_IN_TIMEOUT_MS = 45_000;
 
-const getSafeNext = (next: string | string[] | undefined) => {
+const readSafeNext = (next: string | string[] | undefined) => {
   if (typeof next !== 'string' || !next.startsWith('/') || next.startsWith('//') || next.startsWith(LOGIN_PATH)) {
-    return '/';
+    return null;
   }
   return next;
 };
+
+const getSafeNext = (next: string | string[] | undefined) => readSafeNext(next) ?? '/';
 
 const LoginPage = () => {
   const router = useRouter();
@@ -246,7 +248,7 @@ const LoginPage = () => {
     return renderShell(
       <OnboardingSteps
         address={connectedAddress}
-        nextPath={getSafeNext(router.query.next)}
+        nextPath={readSafeNext(router.query.next)}
         onFocusSlide={(id) => setShowcaseFocus({ id })}
         onLeadSlide={(id) => {
           setShowcaseLead(id);

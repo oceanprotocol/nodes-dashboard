@@ -1,3 +1,4 @@
+import { getCommonNavNode, isNavNodeId, NAV_TREE, NavNodeId } from '@/lib/navigation-tree';
 import questions from './onboarding-questions.json';
 
 export type Lane = 'maker' | 'builder';
@@ -11,6 +12,7 @@ export type ProfileOption = {
 };
 
 export type GoalOption = {
+  destination: NavNodeId;
   id: string;
   isNew?: boolean;
   logos?: string[];
@@ -68,6 +70,11 @@ export const ALL_GOALS = ONBOARDING_QUESTIONS.goals.tabs.flatMap((tab) => tab.op
 export const findProfile = (id: string | null) => ONBOARDING_QUESTIONS.profile.options.find((p) => p.id === id);
 export const findGoal = (id: string) => ALL_GOALS.find((g) => g.id === id);
 export const findSource = (id: string | null) => ONBOARDING_QUESTIONS.source.options.find((s) => s.id === id);
+
+export const getOnboardingDestination = (goals: string[]) => {
+  const nodes = goals.map((id) => findGoal(id)?.destination).filter(isNavNodeId);
+  return NAV_TREE[getCommonNavNode(nodes)].path;
+};
 
 const requestAnswers = async (input: string, init?: RequestInit) => {
   const response = await fetch(input, init);

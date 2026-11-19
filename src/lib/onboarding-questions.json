@@ -84,18 +84,21 @@
         "options": [
           {
             "id": "product",
+            "destination": "inferenceTemplates",
             "slide": "product",
             "title": "Product Photo Studio",
             "subtitle": "1 photo in. Studio shots, a 360° spin, a poster and a video out."
           },
           {
             "id": "ad",
+            "destination": "inferenceTemplates",
             "slide": "ad",
             "title": "Ad Campaign Generator",
             "subtitle": "5 photos in. Ad images, posters and a vertical video out."
           },
           {
             "id": "ugc",
+            "destination": "inferenceTemplates",
             "slide": "ugc",
             "title": "UGC Reel Maker",
             "subtitle": "One character and one voice across up to 8 shots.",
@@ -103,12 +106,14 @@
           },
           {
             "id": "video",
+            "destination": "inferenceTemplates",
             "slide": "ugc",
             "title": "Video Generator",
             "subtitle": "Text, a photo or references in. Video with audio out."
           },
           {
             "id": "music",
+            "destination": "inferenceTemplates",
             "slide": "music",
             "title": "Music Generator",
             "subtitle": "One-line brief in. A stereo song with vocals out.",
@@ -117,6 +122,7 @@
           },
           {
             "id": "landing",
+            "destination": "inferenceTemplates",
             "slide": null,
             "title": "Landing Studio",
             "subtitle": "A brief in. Three landing directions and an animated hero out."
@@ -129,6 +135,7 @@
         "options": [
           {
             "id": "endpoint",
+            "destination": "inferenceDefaultModels",
             "slide": "builder",
             "title": "OpenAI-compatible endpoint",
             "subtitle": "Pin a curated open model, like Qwen3.8-27B, on a dedicated GPU.",
@@ -136,12 +143,14 @@
           },
           {
             "id": "custom",
+            "destination": "inferenceCustomModels",
             "slide": "builder",
             "title": "Custom Hugging Face model",
             "subtitle": "Search any model and serve it on vLLM."
           },
           {
             "id": "agent",
+            "destination": "inferenceServices",
             "slide": "builder",
             "title": "Coding agent",
             "subtitle": "A persistent workspace with long context.",
@@ -149,6 +158,7 @@
           },
           {
             "id": "app",
+            "destination": "inferenceServices",
             "slide": "builder",
             "title": "Run an app",
             "subtitle": "ComfyUI, Open WebUI and more on a GPU that is yours.",
@@ -156,6 +166,7 @@
           },
           {
             "id": "notebook",
+            "destination": "runJob",
             "slide": "builder",
             "title": "Notebook or benchmark",
             "subtitle": "JupyterLab for experiments and evals.",
