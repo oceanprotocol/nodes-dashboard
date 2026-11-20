@@ -3,7 +3,9 @@ import FooterSection from '@/components/homepage/footer-section';
 import SessionExpiryNotifier from '@/components/inference/session-expiry-notifier';
 import Navigation from '@/components/Navigation/navigation';
 import OutageBanner from '@/components/outage-banner/outage-banner';
+import { LOGIN_PATH } from '@/lib/use-ocean-account';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import { ReactNode } from 'react';
 import styles from './index.module.css';
 
@@ -12,6 +14,9 @@ type RootLayoutProps = {
 };
 
 export default function RootLayout({ children }: RootLayoutProps) {
+  const router = useRouter();
+  const showNavigation = router.pathname !== LOGIN_PATH;
+
   return (
     <>
       <Head>
@@ -20,7 +25,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>
-        <Navigation />
+        {showNavigation && <Navigation />}
         <OutageBanner />
         {/* App-wide, so a session's expiry warning follows the user off the manage page. */}
         <SessionExpiryNotifier />

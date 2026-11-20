@@ -1,17 +1,22 @@
-import LoginModal from '@/components/auth/login-modal';
-import PrivyModalWallets from '@/components/auth/privy-modal-wallets';
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
-import { getEmbeddedWallet } from '@/lib/embedded-wallet';
+import { getEmbeddedWallet, isAlchemyMigrationUser } from '@/lib/embedded-wallet';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
-import { readAuth, useInjectedWallet, writeAuth, type StoredAuth } from '@/lib/use-injected-wallet';
+import {
+  readAuth,
+  useInjectedWallet,
+  writeAuth,
+  type DiscoveredWallet,
+  type StoredAuth,
+} from '@/lib/use-injected-wallet';
 import { CircularProgress } from '@mui/material';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { ethers } from 'ethers';
+import { useRouter } from 'next/router';
 import posthog from 'posthog-js';
-import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
 
 const FullScreenSpinner = () => (
@@ -42,6 +47,18 @@ class MetaMaskBrowserProvider extends ethers.BrowserProvider {
 
 export type SignMessageFn = (message: string) => Promise<string>;
 
+export const LOGIN_PATH = '/login';
+
+export type LoginOptions = {
+  connectWallet: (rdns: string) => Promise<boolean>;
+  isConnectingWallet: boolean;
+  privyUnavailable: boolean;
+  /** Clears a stale Privy session and the remembered wallet, then runs `start`. */
+  startPrivyLogin: (start: () => Promise<void>, onAborted: () => void) => void;
+  walletError?: string;
+  wallets: DiscoveredWallet[];
+};
+
 export type OceanUser = { type: 'sca'; address: string } | { type: 'eoa'; address?: string } | null;
 
 type OceanAccountContextType = {
@@ -54,6 +71,8 @@ type OceanAccountContextType = {
   isConnecting: boolean;
   isSendingTransaction: boolean;
   login: () => void;
+  /** Null once connected: the login page has nothing to offer then. */
+  loginOptions: LoginOptions | null;
   logout: () => Promise<void>;
   ocean: OceanProvider | null;
   provider: ethers.BrowserProvider | ethers.JsonRpcProvider | null;
@@ -69,8 +88,20 @@ type OceanAccountContextType = {
 
 const OceanAccountContext = createContext<OceanAccountContextType | undefined>(undefined);
 
+const useOpenLoginPage = () => {
+  const router = useRouter();
+
+  return useCallback(() => {
+    if (router.pathname === LOGIN_PATH) {
+      return;
+    }
+    router.push({ pathname: LOGIN_PATH, query: { next: router.asPath } });
+  }, [router]);
+};
+
 const SCAHandler = ({ children, onDisconnect }: { children: ReactNode; onDisconnect: () => void }) => {
-  const { login, logout: privyLogout } = usePrivy();
+  const { logout: privyLogout } = usePrivy();
+  const login = useOpenLoginPage();
 
   // Records an explicit disconnect: with no key at all the next load counts as a first visit
   // and silently adopts whatever browser wallet is unlocked.
@@ -130,7 +161,7 @@ const SCAHandler = ({ children, onDisconnect }: { children: ReactNode; onDisconn
   );
 
   // Wait for the smart account address to resolve before rendering as connected, so we never
-  // briefly expose the wrong address (or an unconnected state that retriggers the login modal).
+  // briefly expose the wrong address (or an unconnected state that offers login again).
   if (!address) {
     return <FullScreenSpinner />;
   }
@@ -142,8 +173,8 @@ const SCAHandler = ({ children, onDisconnect }: { children: ReactNode; onDisconn
         authenticated: true,
         isConnecting: false,
         isSendingTransaction,
-        // A SCA user is always already connected, so the chooser is never needed here.
         login,
+        loginOptions: null,
         logout,
         ocean,
         provider,
@@ -173,49 +204,60 @@ const EOAHandler = ({
   privyUnavailable: boolean;
 }) => {
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
-  const [isFallbackLoginOpen, setIsFallbackLoginOpen] = useState(false);
-  const [loginRequested, setLoginRequested] = useState(false);
+  const pendingPrivyLogin = useRef<(() => Promise<void>) | null>(null);
   const { address, chainError, connect, disconnect, eip1193, error, isConnecting, wallets } = useInjectedWallet({
     canAutoAdopt,
   });
-  const { login: privyLogin, logout: privyLogout, ready: privyReady, user: privyUser } = usePrivy();
+  const { logout: privyLogout, user: privyUser } = usePrivy();
+  const login = useOpenLoginPage();
 
   // A migrating user is `authenticated` with no embedded wallet until MigrationProvider
   // imports it (see shouldCreateWallet in alchemy-provider.tsx) — legitimate, not stale.
-  const isMigrating = authenticated && privyUser?.customMetadata?.['alchemy_org_id'] !== undefined;
+  const isMigrating = authenticated && !!privyUser && isAlchemyMigrationUser(privyUser);
 
-  // Privy's modal is the login UI, with the wallet list portaled into it. Queue the request
-  // rather than drop it: `!ready` is true for the first moments of every healthy load.
-  const login = useCallback(() => setLoginRequested(true), []);
+  const hasStaleSession = authenticated && !isMigrating;
 
+  const runPrivyLogin = useCallback(
+    (start: () => Promise<void>) => {
+      // An explicit disconnect rather than a cleared record: an empty one reads as "don't know
+      // yet", which re-enables the silent adopt, and a remembered wallet would outrank the new
+      // Privy session.
+      writeAuth('disconnected');
+      onAuthChange('disconnected');
+      start();
+    },
+    [onAuthChange]
+  );
+
+  // Privy refuses to start a login over a stale session, and awaiting logout is not enough: it
+  // resolves a render before `authenticated` actually flips, so the effect below picks the
+  // request up on the flip. Never log out a migrating user — clearing their session aborts the
+  // migration.
+  const startPrivyLogin = useCallback(
+    (start: () => Promise<void>, onAborted: () => void) => {
+      if (!hasStaleSession) {
+        runPrivyLogin(start);
+        return;
+      }
+      pendingPrivyLogin.current = start;
+      privyLogout().catch(() => {
+        pendingPrivyLogin.current = null;
+        onAborted();
+      });
+    },
+    [hasStaleSession, privyLogout, runPrivyLogin]
+  );
+
+  // The request lives in a ref and is cleared before it runs: as state, a re-render that lands
+  // ahead of the clearing update re-runs this effect and starts the login again, without end.
   useEffect(() => {
-    if (!loginRequested) return;
-    // Fall back to our wallet-only modal only once Privy has actually failed to come up.
-    if (privyUnavailable) {
-      setLoginRequested(false);
-      setIsFallbackLoginOpen(true);
+    const start = pendingPrivyLogin.current;
+    if (!start || hasStaleSession) {
       return;
     }
-    if (!privyReady) return; // still starting — keep the request pending
-
-    // Privy's login() no-ops on a stale session, and awaiting logout is not enough: it
-    // resolves a render before `authenticated` actually flips, so calling login() in the same
-    // tick silently does nothing and the user has to click twice. Keep the request pending
-    // instead and let this effect re-run on the flip. Never log out a migrating user —
-    // clearing their session aborts the migration.
-    if (authenticated && !isMigrating) {
-      privyLogout().catch(() => setLoginRequested(false));
-      return;
-    }
-
-    setLoginRequested(false);
-    // Drop the remembered wallet so the native path isn't a dead end, but record an explicit
-    // disconnect rather than clearing: an empty record reads as "don't know yet", which
-    // re-enables the silent adopt and would connect the unlocked wallet behind Privy's modal.
-    writeAuth('disconnected');
-    onAuthChange('disconnected');
-    privyLogin();
-  }, [authenticated, isMigrating, loginRequested, onAuthChange, privyLogin, privyLogout, privyReady, privyUnavailable]);
+    pendingPrivyLogin.current = null;
+    runPrivyLogin(start);
+  }, [hasStaleSession, runPrivyLogin]);
 
   // Mirror what the hook persisted, or the branch above keeps answering with page-load state.
   const handleConnect = useCallback(
@@ -251,13 +293,28 @@ const EOAHandler = ({
     }
   }, [address]);
 
-  // Happens with both modals closed, so without a toast the header just flips back to
+  // Happens outside the login page, so without a toast the header just flips back to
   // "Log in" unexplained. Connect errors are excluded — the wallet list shows those inline.
   useEffect(() => {
     if (chainError) toast.error(chainError);
   }, [chainError]);
 
   const ocean = useMemo(() => new OceanProvider(CHAIN_ID, provider), [provider]);
+
+  const loginOptions = useMemo<LoginOptions | null>(
+    () =>
+      address
+        ? null
+        : {
+            connectWallet: handleConnect,
+            isConnectingWallet: isConnecting,
+            privyUnavailable,
+            startPrivyLogin,
+            walletError: error,
+            wallets,
+          },
+    [address, error, handleConnect, isConnecting, privyUnavailable, startPrivyLogin, wallets]
+  );
 
   // Guarded on signerProvider: `provider` may be the read-only RPC one.
   const signMessageWrapper = useCallback(
@@ -311,6 +368,7 @@ const EOAHandler = ({
         isConnecting,
         isSendingTransaction,
         login,
+        loginOptions,
         logout: handleDisconnect,
         ocean,
         provider,
@@ -320,15 +378,6 @@ const EOAHandler = ({
       }}
     >
       {children}
-      <PrivyModalWallets error={error} isConnecting={isConnecting} onConnect={handleConnect} wallets={wallets} />
-      <LoginModal
-        error={error}
-        isConnecting={isConnecting}
-        isOpen={isFallbackLoginOpen}
-        onClose={() => setIsFallbackLoginOpen(false)}
-        onConnect={handleConnect}
-        wallets={wallets}
-      />
     </OceanAccountContext.Provider>
   );
 };

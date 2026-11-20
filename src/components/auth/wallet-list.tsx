@@ -9,7 +9,6 @@ export type WalletListProps = {
   wallets: DiscoveredWallet[];
 };
 
-/** Shared by the fallback modal and the section portaled into Privy's modal. */
 const WalletList = ({ error, isConnecting, onConnect, onConnected, wallets }: WalletListProps) => {
   const handleConnect = async (rdns: string) => {
     if (await onConnect(rdns)) {

@@ -31,6 +31,7 @@ export const INFERENCE_PATHS = {
   services: '/inference/services',
   templates: '/inference/templates',
   packages: '/inference/default-models',
+  customModels: '/inference/custom-models',
 } as const;
 
 /**

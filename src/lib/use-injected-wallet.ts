@@ -105,7 +105,7 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
   // which it never was. AuthRequiredPage waits for a click instead.
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  // Separate from `error` because it is toasted: it happens with every modal closed, whereas
+  // Separate from `error` because it is toasted: it happens outside the login page, whereas
   // connect errors already render inline in the wallet list.
   const [chainError, setChainError] = useState<string | undefined>();
 

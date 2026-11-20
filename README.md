@@ -81,14 +81,17 @@ yarn start
 
 ## Scripts
 
-| Script          | Description                                  |
-| --------------- | -------------------------------------------- |
-| `yarn dev`      | Start Next.js development server             |
-| `yarn build`    | Build for production (`NODE_ENV=production`) |
-| `yarn start`    | Start the production server                  |
-| `yarn lint`     | Run ESLint                                   |
-| `yarn lint:fix` | Run ESLint with auto-fix                     |
-| `yarn format`   | Run Prettier on all TS/TSX files             |
+| Script             | Description                                      |
+| ------------------ | ------------------------------------------------ |
+| `yarn dev`         | Start Next.js development server                 |
+| `yarn build`       | Build for production (`NODE_ENV=production`)     |
+| `yarn start`       | Start the production server                      |
+| `yarn lint`        | Run ESLint                                       |
+| `yarn lint:fix`    | Run ESLint with auto-fix                         |
+| `yarn format`      | Run Prettier on all TS/TSX files                 |
+| `yarn db:generate` | Generate a SQL migration from `src/db/schema.ts` |
+| `yarn db:migrate`  | Apply pending migrations to the database         |
+| `yarn db:studio`   | Open Drizzle Studio to browse the database       |
 
 ---
 
@@ -114,6 +117,13 @@ Create a `.env.local` file from [`.env.example`](.env.example) (or configure you
 | `NEXT_PUBLIC_ALCHEMY_POLICY_ID` | Alchemy gas sponsorship policy ID                                                                                                                  |
 | `NEXT_PUBLIC_APP_URL`           | Public app URL used as the Google login redirect (e.g. `http://localhost:3000`)                                                                    |
 | `ALCHEMY_RPC_URL`               | Production only. Base mainnet Alchemy RPC URL, used server-side and behind the `/api/rpc` proxy. In development the app uses a public Sepolia RPC. |
+
+### Database
+
+| Variable                | Description                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`          | Neon Postgres pooled connection string. Used by API routes (onboarding).                               |
+| `DATABASE_URL_UNPOOLED` | Optional. Neon direct (non-pooled) connection string, used by `yarn db:*`. Defaults to `DATABASE_URL`. |
 
 ### Fiat On-Ramp
 
