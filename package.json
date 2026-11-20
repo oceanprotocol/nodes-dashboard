@@ -10,7 +10,10 @@
     "start": "next start",
     "lint": "eslint --ignore-path .gitignore --ext .ts,.tsx .",
     "lint:fix": "eslint --ignore-path .gitignore --ext .ts,.tsx . --fix",
-    "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'"
+    "format": "prettier --parser typescript --ignore-path .gitignore --write '**/*.{js,jsx,ts,tsx}'",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@account-kit/infra": "4.88.5",
@@ -27,6 +30,7 @@
     "@mui/material": "^7.3.6",
     "@mui/x-data-grid": "^8.14.1",
     "@multiformats/multiaddr": "^13.0.1",
+    "@neondatabase/serverless": "1.2.0",
     "@oceanprotocol/contracts": "3.2.0",
     "@oceanprotocol/lib": "10.0.0",
     "@privy-io/alchemy-migration": "^0.0.5",
@@ -43,6 +47,7 @@
     "classnames": "^2.5.0",
     "date-fns": "^2.30.0",
     "dayjs": "^1.11.10",
+    "drizzle-orm": "0.45.4",
     "ethers": "^6.15.0",
     "express": "^4.22.1",
     "formik": "^2.4.9",
@@ -74,6 +79,7 @@
     "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^8.71.1",
+    "drizzle-kit": "0.31.11",
     "eslint": "^8.57.0",
     "eslint-config-next": "15.5.28",
     "eslint-config-oceanprotocol": "^2.0.4",
