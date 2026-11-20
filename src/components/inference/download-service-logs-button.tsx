@@ -4,7 +4,7 @@ import Button from '@/components/button/button';
 import { useNodeTokensContext } from '@/context/node-tokens';
 import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { cleanLogText } from '@/lib/strip-ansi';
-import { getServiceLogs } from '@/services/nodeService';
+import { readServiceLogs } from '@/services/nodeService';
 import {
   isServiceLogsRetentionEnded,
   SERVICE_LOGS_RETENTION_ENDED_NOTE,
@@ -26,7 +26,8 @@ const IDLE_MS = 2000;
 const SNAPSHOT_MAX_MS = 30000;
 // A finished service's stream ends on its own once the node has sent everything, so this only guards
 // against a transfer that hangs. Generous, because the node keeps up to 16 MiB per container and a
-// read cut short would lose the newest output, which is where a crash shows.
+// read cut short would lose the newest output, which is where a crash shows. It is also the idle
+// window for such a read: a pause there is a slow transfer, not the end of the log.
 const FINAL_MAX_MS = 120000;
 
 type DownloadServiceLogsButtonProps = {
@@ -103,15 +104,22 @@ const DownloadServiceLogsButton: React.FC<DownloadServiceLogsButtonProps> = ({
       : 'The node has no logs for this service.';
 
     try {
-      const raw = await withNodeAuth(nodePeerId, nodeUri, (token) =>
-        getServiceLogs(nodeUri, token, serviceId, undefined, {
-          idleMs: IDLE_MS,
+      const { text: raw, end } = await withNodeAuth(nodePeerId, nodeUri, (token) =>
+        readServiceLogs(nodeUri, token, serviceId, undefined, {
+          idleMs: isSnapshot ? IDLE_MS : FINAL_MAX_MS,
           maxMs: isSnapshot ? SNAPSHOT_MAX_MS : FINAL_MAX_MS,
           signal: abortController.signal,
           throwOnError: true,
         })
       );
       if (abortController.signal.aborted) {
+        return;
+      }
+      // A snapshot always ends on a pause or the time limit, so what arrived is the snapshot. A final
+      // log is complete only when the node ends the stream: saving a transfer that broke off would
+      // pass part of the log off as all of it, without the newest lines.
+      if (!isSnapshot && end !== 'eof') {
+        toast.error('The logs could not be downloaded in full. Please try again.');
         return;
       }
       const text = cleanLogText(raw);

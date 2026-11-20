@@ -657,32 +657,49 @@ export async function* streamServiceLogs(
   }
 }
 
+/**
+ * How a read of a service's log ended. Every case returns what arrived, but only 'eof' means the
+ * node sent all of it: 'idle' and 'max' are how a read of a running service's never-ending log is
+ * meant to stop, while 'error' (the transfer broke off) and 'aborted' (the caller cancelled) cut
+ * one short.
+ */
+export type ServiceLogsReadEnd = 'eof' | 'idle' | 'max' | 'aborted' | 'error';
+
+type ServiceLogsReadOptions = {
+  idleMs?: number;
+  maxMs?: number;
+  /**
+   * Lets a caller that goes away (e.g. unmounts) end the read now rather than after `maxMs`.
+   * Resolves with whatever arrived so far.
+   */
+  signal?: AbortSignal;
+  /**
+   * Off by default, because the live panel would rather show an empty log than crash. A download
+   * turns it on: it must tell "the node has no logs" from "the request failed", and withNodeAuth
+   * can only re-mint the token on a 401 that reaches it.
+   */
+  throwOnError?: boolean;
+};
+
+/** For callers that only need the text. */
 export async function getServiceLogs(
   nodeUri: NodeUri,
   signerOrAuthToken: SignerOrAuthTokenOrSignature,
   serviceId: string,
   since?: string,
-  {
-    idleMs = 1500,
-    maxMs = 15000,
-    signal,
-    throwOnError = false,
-  }: {
-    idleMs?: number;
-    maxMs?: number;
-    /**
-     * Lets a caller that goes away (e.g. unmounts) end the read now rather than after `maxMs`.
-     * Resolves with whatever arrived so far.
-     */
-    signal?: AbortSignal;
-    /**
-     * Off by default, because the live panel would rather show an empty log than crash. A download
-     * turns it on: it must tell "the node has no logs" from "the request failed", and withNodeAuth
-     * can only re-mint the token on a 401 that reaches it.
-     */
-    throwOnError?: boolean;
-  } = {}
+  options: ServiceLogsReadOptions = {}
 ): Promise<string> {
+  return (await readServiceLogs(nodeUri, signerOrAuthToken, serviceId, since, options)).text;
+}
+
+/** Also says how the read ended, for a caller that must not treat a broken-off log as a whole one. */
+export async function readServiceLogs(
+  nodeUri: NodeUri,
+  signerOrAuthToken: SignerOrAuthTokenOrSignature,
+  serviceId: string,
+  since?: string,
+  { idleMs = 1500, maxMs = 15000, signal, throwOnError = false }: ServiceLogsReadOptions = {}
+): Promise<{ text: string; end: ServiceLogsReadEnd }> {
   const controller = new AbortController();
   // Forwarded into our own controller rather than handed down as is: that controller is the one the
   // dial, the stream and the drain below already listen to.
@@ -709,15 +726,18 @@ export async function getServiceLogs(
     // The P2P command can time out (e.g. an old node still streaming with follow:true, or no
     // response). Surface nothing rather than crashing the panel — the caller shows a friendly state.
     console.warn('serviceGetStreamableLogs failed:', error);
-    return '';
+    return { text: '', end: 'error' };
   }
   if (!stream) {
     signal?.removeEventListener('abort', onExternalAbort);
-    return '';
+    // Nothing to read (the HTTP provider's answer to a non-200), so nothing was cut short.
+    return { text: '', end: 'eof' };
   }
   const toBytes = serviceLogChunkToBytes;
 
   const parts: Uint8Array[] = [];
+  // Set by the first finish(); later calls (e.g. the stream erroring because finish aborted it) can't change it.
+  let end: ServiceLogsReadEnd = 'eof';
 
   // Drain the (never-ending) follow stream until it goes idle or hits the hard cap, then abort it.
   // The idle timer only arms AFTER the first chunk — the initial P2P round-trip + node-side stream
@@ -725,23 +745,24 @@ export async function getServiceLogs(
   await new Promise<void>((resolve) => {
     let settled = false;
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
-    const finish = () => {
+    const finish = (reason: ServiceLogsReadEnd) => {
       if (settled) {
         return;
       }
       settled = true;
+      end = reason;
       clearTimeout(idleTimer);
       clearTimeout(maxTimer);
       controller.abort();
       resolve();
     };
     // Hard ceiling — always fires even if no chunk ever arrives (empty/hung stream).
-    const maxTimer = setTimeout(finish, maxMs);
+    const maxTimer = setTimeout(() => finish('max'), maxMs);
     // Otherwise a cancelled read would still wait out the idle window or the ceiling.
     if (controller.signal.aborted) {
-      finish();
+      finish('aborted');
     } else {
-      controller.signal.addEventListener('abort', finish, { once: true });
+      controller.signal.addEventListener('abort', () => finish('aborted'), { once: true });
     }
 
     (async () => {
@@ -756,13 +777,14 @@ export async function getServiceLogs(
           }
           // Arm/reset the idle window only once output has started flowing.
           clearTimeout(idleTimer);
-          idleTimer = setTimeout(finish, idleMs);
+          idleTimer = setTimeout(() => finish('idle'), idleMs);
         }
         // Stream ended on its own (not following) — we have everything.
-        finish();
+        finish('eof');
       } catch {
-        // Abort (or transport error) ends iteration — return whatever was collected.
-        finish();
+        // Our own abort lands here too, but finish() already ran for it; anything else broke the
+        // transfer off. Either way, return whatever was collected.
+        finish('error');
       }
     })();
   });
@@ -775,7 +797,7 @@ export async function getServiceLogs(
     merged.set(p, offset);
     offset += p.length;
   }
-  return demuxDockerLogs(merged);
+  return { text: demuxDockerLogs(merged), end };
 }
 
 /**
