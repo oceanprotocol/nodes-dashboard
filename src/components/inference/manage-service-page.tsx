@@ -34,6 +34,7 @@ import {
   toNodeUri,
 } from '@/services/inference-launch';
 import { detailsPath, firstQueryValue, INFERENCE_PATHS } from '@/services/inference-url';
+import { serviceLogsRetentionEndsAt } from '@/services/service-logs';
 import {
   branchForAppType,
   isModelAppType,
@@ -137,6 +138,9 @@ const OPEN_ANYWAY_AFTER_MS = 10 * 60 * 1000;
 
 // How often to poll the node for the service status while it's still spinning up.
 const POLL_INTERVAL_MS = 4000;
+// Browsers fire a setTimeout at once when its delay is over 2^31-1 ms (~24.8 days), so longer waits
+// are split into steps of at most this.
+const MAX_TIMER_DELAY_MS = 2 ** 31 - 1;
 // A P2P round-trip can hang indefinitely if the node/relay is unreachable (no built-in timeout).
 // Cap each status fetch so a hung dial surfaces as an error + retry instead of an eternal spinner.
 const STATUS_TIMEOUT_MS = 30000;
@@ -752,6 +756,27 @@ const ManageServicePage: React.FC = () => {
   // expiresAt while still reading Running). Mirror it so Edit/Restart aren't offered when doomed to
   // fail. `expiresAt` is ms.
   const isExpired = !!job && (job.status === ServiceStatusNumber.Expired || Date.now() >= job.expiresAt);
+  // Lets the logs panel disable Download once the node has deleted the logs, instead of offering a
+  // download that is bound to fail.
+  const logsRetentionEndsAt = serviceLogsRetentionEndsAt(job, environment);
+  // Polling stops at a terminal status, so without this nothing would re-render the logs panel when
+  // the deadline passes. The node also accepts an extend on a Stopped or Errored service (e.g. from
+  // another tab), which moves the deadline. So instead of trusting the last poll, the page re-reads
+  // the status once the deadline arrives.
+  const statusPollStopped = !!job && TERMINAL_STATUSES.has(job.status);
+  useEffect(() => {
+    if (!statusPollStopped || logsRetentionEndsAt === undefined) {
+      return;
+    }
+    const delay = logsRetentionEndsAt - Date.now();
+    if (delay <= 0) {
+      return;
+    }
+    // pollEpoch is a dependency so the timer is re-armed after each re-read, which also covers a
+    // deadline further off than one timer can wait.
+    const timer = setTimeout(() => setPollEpoch((epoch) => epoch + 1), Math.min(delay, MAX_TIMER_DELAY_MS));
+    return () => clearTimeout(timer);
+  }, [statusPollStopped, logsRetentionEndsAt, pollEpoch]);
   /**
    * An earlier extension payment the node still holds under this service's escrow id. The node takes
    * every payment for a service under that one id (see service-escrow-lock), so while it holds one,
@@ -1472,10 +1497,12 @@ const ManageServicePage: React.FC = () => {
             {logsOpen ? (
               <ServiceLogsPanel
                 consumerAddress={account.address ?? undefined}
+                logsRetentionEndsAt={logsRetentionEndsAt}
                 nodePeerId={nodePeerId}
                 nodeUri={nodeUri}
                 open={logsOpen}
                 serviceId={id}
+                serviceStatus={job?.status}
               />
             ) : (
               <div className="actionsGroupMdEnd">
