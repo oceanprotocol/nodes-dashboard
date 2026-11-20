@@ -4,7 +4,6 @@ import {
   findGoal,
   findProfile,
   findSource,
-  getOnboardingDestination,
   Lane,
   ONBOARDING_QUESTIONS,
   SOURCE_DETAIL_MAX_LENGTH,
@@ -55,7 +54,9 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
   const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState<Lane>('maker');
 
-  const destination = nextPath ?? getOnboardingDestination(goals);
+  const [submittedDestination, setSubmittedDestination] = useState<string | null>(null);
+
+  const destination = nextPath ?? submittedDestination ?? '/';
 
   useEffect(() => {
     if (step !== 'done') {
@@ -104,12 +105,13 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
     }
     setSubmitting(true);
     try {
-      await submitOnboardingAnswers(address, {
+      const status = await submitOnboardingAnswers(address, {
         goals,
         profile,
         source: skip ? null : source,
         sourceDetail: skip ? null : sourceDetail,
       });
+      setSubmittedDestination(status.destination);
       setStep('done');
     } catch (cause) {
       console.error('Saving onboarding answers failed:', cause);

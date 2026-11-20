@@ -3,7 +3,7 @@ import Button from '@/components/button/button';
 import Input from '@/components/input/input';
 import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
 import { isAlchemyMigrationUser, needsEmbeddedWallet } from '@/lib/embedded-wallet';
-import { fetchOnboardingAnswers } from '@/lib/onboarding';
+import { fetchOnboardingStatus } from '@/lib/onboarding';
 import { LOGIN_PATH, useOceanAccount } from '@/lib/use-ocean-account';
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
 import GoogleIcon from '@mui/icons-material/Google';
@@ -43,8 +43,6 @@ const readSafeNext = (next: string | string[] | undefined) => {
   return next;
 };
 
-const getSafeNext = (next: string | string[] | undefined) => readSafeNext(next) ?? '/';
-
 const LoginPage = () => {
   const router = useRouter();
   const { account, loginOptions } = useOceanAccount();
@@ -66,12 +64,12 @@ const LoginPage = () => {
   const connectedAddress = account.isConnected ? account.address : undefined;
   const onboarding = useQuery({
     enabled: !!connectedAddress,
-    queryFn: () => fetchOnboardingAnswers(connectedAddress as string),
+    queryFn: () => fetchOnboardingStatus(connectedAddress as string),
     queryKey: ['onboarding', connectedAddress],
     refetchOnWindowFocus: false,
     retry: 1,
   });
-  const needsOnboarding = !!connectedAddress && onboarding.isSuccess && !onboarding.data;
+  const needsOnboarding = !!connectedAddress && onboarding.isSuccess && !onboarding.data.onboarded;
   const onboardingSettled = onboarding.isSuccess || onboarding.isError;
 
   const fail = useCallback((message: string) => {
@@ -154,8 +152,8 @@ const LoginPage = () => {
       return;
     }
     redirected.current = true;
-    router.replace(getSafeNext(router.query.next));
-  }, [account.isConnected, needsOnboarding, onboardingSettled, router]);
+    router.replace(readSafeNext(router.query.next) ?? onboarding.data?.destination ?? '/');
+  }, [account.isConnected, needsOnboarding, onboarding.data?.destination, onboardingSettled, router]);
 
   const isSubmittingCode = emailState.status === 'submitting-code';
   const submittedCode = useRef<string | null>(null);

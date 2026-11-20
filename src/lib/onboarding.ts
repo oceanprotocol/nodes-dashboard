@@ -55,9 +55,9 @@ export type OnboardingAnswers = {
   sourceDetail: string | null;
 };
 
-export type OnboardingRecord = OnboardingAnswers & {
-  address: string;
-  submittedAt: string;
+export type OnboardingStatus = {
+  destination: string | null;
+  onboarded: boolean;
 };
 
 export const ONBOARDING_API_PATH = '/api/onboarding';
@@ -76,20 +76,19 @@ export const getOnboardingDestination = (goals: string[]) => {
   return NAV_TREE[getCommonNavNode(nodes)].path;
 };
 
-const requestAnswers = async (input: string, init?: RequestInit) => {
+const requestStatus = async (input: string, init?: RequestInit): Promise<OnboardingStatus> => {
   const response = await fetch(input, init);
   if (!response.ok) {
     throw new Error(`Onboarding request failed with ${response.status}`);
   }
-  const body: { answers: OnboardingRecord | null } = await response.json();
-  return body.answers;
+  return response.json();
 };
 
-export const fetchOnboardingAnswers = (address: string) =>
-  requestAnswers(`${ONBOARDING_API_PATH}?address=${encodeURIComponent(address)}`);
+export const fetchOnboardingStatus = (address: string) =>
+  requestStatus(`${ONBOARDING_API_PATH}?address=${encodeURIComponent(address)}`);
 
 export const submitOnboardingAnswers = (address: string, answers: OnboardingAnswers) =>
-  requestAnswers(ONBOARDING_API_PATH, {
+  requestStatus(ONBOARDING_API_PATH, {
     body: JSON.stringify({ ...answers, address }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
