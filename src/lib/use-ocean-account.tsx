@@ -205,9 +205,10 @@ const EOAHandler = ({
 }) => {
   const [isSendingTransaction, setIsSendingTransaction] = useState(false);
   const pendingPrivyLogin = useRef<(() => Promise<void>) | null>(null);
-  const { address, chainError, connect, disconnect, eip1193, error, isConnecting, wallets } = useInjectedWallet({
-    canAutoAdopt,
-  });
+  const { address, chainError, connect, disconnect, eip1193, error, isConnecting, release, wallets } =
+    useInjectedWallet({
+      canAutoAdopt,
+    });
   const { logout: privyLogout, user: privyUser } = usePrivy();
   const login = useOpenLoginPage();
 
@@ -221,12 +222,14 @@ const EOAHandler = ({
     (start: () => Promise<void>) => {
       // An explicit disconnect rather than a cleared record: an empty one reads as "don't know
       // yet", which re-enables the silent adopt, and a remembered wallet would outrank the new
-      // Privy session.
+      // Privy session. Releasing the selected wallet stops its account and chain events from
+      // restoring an address before the Privy login completes.
       writeAuth('disconnected');
       onAuthChange('disconnected');
+      release();
       start();
     },
-    [onAuthChange]
+    [onAuthChange, release]
   );
 
   // Privy refuses to start a login over a stale session, and awaiting logout is not enough: it

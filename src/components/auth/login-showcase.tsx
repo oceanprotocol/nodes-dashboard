@@ -354,19 +354,22 @@ const LoginShowcase = ({ focus, lead = null }: LoginShowcaseProps) => {
           </article>
         );
       })}
-      <div aria-label="Choose a slide" className={styles.timer} role="tablist">
+      <div aria-label="Choose a slide" className={styles.timer} role="group">
         {order.map((id, index) => (
           <button
             aria-label={SLIDES_BY_ID[id].title}
-            aria-selected={index === current}
+            aria-pressed={index === current}
             className={classNames({ [styles.past]: index < current, [styles.current]: index === current })}
-            key={`${id}-${index === current ? current : 'idle'}`}
+            key={id}
             onClick={() => goTo(index)}
-            role="tab"
             type="button"
           >
             <span className={styles.track}>
-              <span className={styles.fill} onAnimationEnd={index === current ? () => goTo(current + 1) : undefined} />
+              <span
+                className={styles.fill}
+                key={index === current ? current : 'idle'}
+                onAnimationEnd={index === current ? () => goTo(current + 1) : undefined}
+              />
             </span>
           </button>
         ))}

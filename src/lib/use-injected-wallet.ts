@@ -227,16 +227,20 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
     [wallets]
   );
 
+  const release = useCallback(() => {
+    setAddress(undefined);
+    setSelected(null);
+    setError(undefined);
+    setChainError(undefined);
+  }, []);
+
   const disconnect = useCallback(async () => {
     writeAuth('disconnected');
     try {
       await selected?.provider.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] });
     } catch {} // MetaMask-only; other wallets keep the grant, hence the stored record
-    setAddress(undefined);
-    setSelected(null);
-    setError(undefined);
-    setChainError(undefined);
-  }, [selected]);
+    release();
+  }, [release, selected]);
 
   return useMemo(
     () => ({
@@ -249,8 +253,9 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
       eip1193: chainError ? undefined : selected?.provider,
       error,
       isConnecting,
+      release,
       wallets,
     }),
-    [address, chainError, connect, disconnect, error, isConnecting, selected, wallets]
+    [address, chainError, connect, disconnect, error, isConnecting, release, selected, wallets]
   );
 }

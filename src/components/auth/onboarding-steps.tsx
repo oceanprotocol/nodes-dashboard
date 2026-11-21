@@ -271,6 +271,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
               <Button
                 aria-pressed={selected}
                 color={selected ? 'accent2' : 'primary-inverse'}
+                disabled={submitting}
                 key={option.id}
                 onClick={() => toggleSource(option.id)}
                 variant={selected ? 'filled' : 'glass'}
@@ -283,6 +284,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
         {detailLabel && (
           <Input
             className={styles.reveal}
+            disabled={submitting}
             label={detailLabel}
             maxLength={SOURCE_DETAIL_MAX_LENGTH}
             name="sourceDetail"

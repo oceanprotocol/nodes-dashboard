@@ -10,11 +10,21 @@ const EMBEDDED_CONNECTOR_TYPES = ['embedded', 'embedded_imported'];
 const hasEthereumWallet = (user: User) =>
   user.linkedAccounts.some((account) => account.type === 'wallet' && account.chainType === 'ethereum');
 
+const hasImportedEmbeddedWallet = (user: User) =>
+  user.linkedAccounts.some(
+    (account) =>
+      account.type === 'wallet' &&
+      account.chainType === 'ethereum' &&
+      account.walletClientType === 'privy' &&
+      account.imported &&
+      EMBEDDED_CONNECTOR_TYPES.includes(account.connectorType ?? '')
+  );
+
 /** Alchemy migration users get their old wallet imported instead of a new one. */
 export const isAlchemyMigrationUser = (user: User) => user.customMetadata?.['alchemy_org_id'] !== undefined;
 
 /** The migration metadata outlives the migration, so it alone does not mean one is due. */
-export const isMigrationPending = (user: User) => isAlchemyMigrationUser(user) && !hasEthereumWallet(user);
+export const isMigrationPending = (user: User) => isAlchemyMigrationUser(user) && !hasImportedEmbeddedWallet(user);
 
 /** Mirrors `createOnLogin: 'users-without-wallets'` plus the migration exception. */
 export const needsEmbeddedWallet = (user: User) => !isAlchemyMigrationUser(user) && !hasEthereumWallet(user);
