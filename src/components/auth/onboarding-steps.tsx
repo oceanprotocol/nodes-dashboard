@@ -1,5 +1,8 @@
 import Button from '@/components/button/button';
+import Card from '@/components/card/card';
 import Input from '@/components/input/input';
+import ProgressBar from '@/components/progress-bar/progress-bar';
+import TabBar from '@/components/tab-bar/tab-bar';
 import {
   findGoal,
   findProfile,
@@ -124,28 +127,27 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
   const renderProfile = () => (
     <div className={styles.step} key="profile">
       <Heading emphasis={PROFILE.titleEmphasis} title={PROFILE.title} />
-      <p className={styles.lead}>{PROFILE.lead}</p>
-      <div aria-label={`${PROFILE.title} ${PROFILE.titleEmphasis}`} className={styles.grid} role="radiogroup">
+      <p className={classNames('textSecondary text16', styles.lead)}>{PROFILE.lead}</p>
+      <div className={styles.grid}>
         {PROFILE.options.map((option) => {
           const selected = profile === option.id;
           return (
-            <button
-              aria-checked={selected}
+            <Button
+              aria-pressed={selected}
               className={classNames(styles.option, { [styles.selected]: selected })}
+              color={selected ? 'accent2' : 'primary-inverse'}
               key={option.id}
               onClick={() => selectProfile(option.id)}
-              role="radio"
-              type="button"
+              variant={selected ? 'filled' : 'glass'}
             >
               <span className={styles.optionTitle}>{option.title}</span>
               <span className={styles.optionSubtitle}>{option.subtitle}</span>
               <Tick />
-            </button>
+            </Button>
           );
         })}
       </div>
-      <div className={styles.actions}>
-        <span />
+      <div className={classNames('actionsGroupMdEnd', styles.actions)}>
         <Button color="accent1" disabled={!profile} onClick={() => setStep('goals')} size="lg">
           Continue
         </Button>
@@ -160,39 +162,34 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
     return (
       <div className={styles.step} key="goals">
         <Heading emphasis={GOALS.titleEmphasis} title={GOALS.title} />
-        <p className={styles.lead}>
+        <p className={classNames('textSecondary text16', styles.lead)}>
           {GOALS.lead.replace('{min}', String(GOALS.min)).replace('{max}', String(GOALS.max))}
         </p>
-        <div aria-label="Browse by" className={styles.tabs} role="tablist">
-          {GOALS.tabs.map((goalTab) => {
-            const active = goalTab.id === tab;
-            return (
-              <button
-                aria-selected={active}
-                className={classNames(styles.tab, { [styles.tabActive]: active })}
-                key={goalTab.id}
-                onClick={() => setTab(goalTab.id)}
-                role="tab"
-                type="button"
-              >
-                {goalTab.label}
-              </button>
-            );
-          })}
-        </div>
+        <TabBar
+          activeKey={tab}
+          ariaLabel="Browse by"
+          className={styles.tabs}
+          size="sm"
+          tabs={GOALS.tabs.map((goalTab) => ({
+            key: goalTab.id,
+            label: goalTab.label,
+            onClick: () => setTab(goalTab.id),
+          }))}
+        />
         <div className={styles.grid}>
           {options.map((option) => {
             const selected = goals.includes(option.id);
             return (
-              <button
+              <Button
                 aria-pressed={selected}
                 className={classNames(styles.option, { [styles.selected]: selected })}
+                color={selected ? 'accent2' : 'primary-inverse'}
                 disabled={full && !selected}
                 key={option.id}
                 onClick={() => toggleGoal(option.id)}
-                type="button"
+                variant={selected ? 'filled' : 'glass'}
               >
-                {option.isNew && <span className={classNames(styles.chip, styles.chipNew)}>NEW</span>}
+                {option.isNew && <span className={classNames('chip chipAccent1', styles.chip)}>NEW</span>}
                 <span className={styles.optionTitle}>{option.title}</span>
                 <span className={styles.optionSubtitle}>{option.subtitle}</span>
                 {option.logos && (
@@ -206,41 +203,38 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
                 {option.meta && (
                   <span className={styles.meta}>
                     {option.meta.map((item) => (
-                      <span
-                        className={classNames(styles.chip, selected ? styles.chipNew : styles.chipGlass)}
-                        key={item}
-                      >
+                      <span className={classNames('chip chipGlass', styles.chip)} key={item}>
                         {item}
                       </span>
                     ))}
                   </span>
                 )}
                 <Tick />
-              </button>
+              </Button>
             );
           })}
         </div>
-        <div aria-live="polite" className={styles.picks}>
-          <span className={styles.count}>
+        <div aria-live="polite" className={classNames('flexRow alignItemsCenter gapSm', styles.picks)}>
+          <span className={classNames('textSecondary', styles.count)}>
             {goals.length} of {GOALS.max} selected{ready ? '' : ` · pick at least ${GOALS.min}`}
           </span>
           {goals.map((id) => {
             const goal = findGoal(id);
             return (
-              <button
+              <Button
                 aria-label={`Remove ${goal?.title}`}
-                className={classNames(styles.chip, styles.chipRemove)}
+                color="accent2"
+                contentAfter={<CloseIcon fontSize="inherit" />}
                 key={id}
                 onClick={() => toggleGoal(id)}
-                type="button"
+                size="sm"
               >
                 {goal?.title}
-                <CloseIcon />
-              </button>
+              </Button>
             );
           })}
         </div>
-        <div className={styles.actions}>
+        <div className={classNames('actionsGroupMdBetween', styles.actions)}>
           <Button className={styles.back} onClick={() => setStep('profile')} size="md" variant="transparent">
             Back
           </Button>
@@ -257,21 +251,20 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
     return (
       <div className={styles.step} key="source">
         <Heading emphasis={SOURCE.titleEmphasis} title={SOURCE.title} />
-        <p className={styles.lead}>{SOURCE.lead}</p>
-        <div aria-label={`${SOURCE.title} ${SOURCE.titleEmphasis}`} className={styles.pills} role="radiogroup">
+        <p className={classNames('textSecondary text16', styles.lead)}>{SOURCE.lead}</p>
+        <div className={classNames('flexRow gapSm', styles.pills)}>
           {SOURCE.options.map((option) => {
             const selected = source === option.id;
             return (
-              <button
-                aria-checked={selected}
-                className={classNames(styles.pill, { [styles.selected]: selected })}
+              <Button
+                aria-pressed={selected}
+                color={selected ? 'accent2' : 'primary-inverse'}
                 key={option.id}
                 onClick={() => toggleSource(option.id)}
-                role="radio"
-                type="button"
+                variant={selected ? 'filled' : 'glass'}
               >
                 {option.label}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -287,11 +280,11 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
             value={sourceDetail}
           />
         )}
-        <div className={styles.actions}>
+        <div className={classNames('actionsGroupMdBetween', styles.actions)}>
           <Button className={styles.back} onClick={() => setStep('goals')} size="md" variant="transparent">
             Back
           </Button>
-          <div className={styles.actionsRight}>
+          <div className="actionsGroupMdEnd">
             <Button disabled={submitting} onClick={() => finish(true)} size="md" variant="transparent">
               Skip
             </Button>
@@ -312,10 +305,11 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
           <CheckIcon />
         </div>
         <Heading emphasis={DONE.titleEmphasis} title={DONE.title} />
-        <p className={styles.lead}>{DONE.lead}</p>
-        <div className={styles.offer}>{DONE.offer}</div>
-        <div className={styles.actions}>
-          <span />
+        <p className={classNames('textSecondary text16', styles.lead)}>{DONE.lead}</p>
+        <Card className={styles.offer} paddingX="sm" paddingY="xs" radius="md" variant="accent2">
+          {DONE.offer}
+        </Card>
+        <div className={classNames('actionsGroupMdEnd', styles.actions)}>
           <Button color="accent1" href={destination} size="lg">
             {DONE.cta[lane ?? 'default']}
           </Button>
@@ -336,22 +330,15 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
         {step === 'done' && renderDone()}
       </div>
       {progressIndex >= 0 && (
-        <div className={styles.foot}>
-          <div aria-hidden className={styles.progress}>
-            {PROGRESS_STEPS.map((item, index) => (
-              <i
-                className={classNames({
-                  [styles.progressDone]: index < progressIndex,
-                  [styles.progressCurrent]: index === progressIndex,
-                })}
-                key={item}
-              />
-            ))}
-          </div>
-          <span className={styles.footLabel}>
-            Step {progressIndex + 1} of {PROGRESS_STEPS.length} · {progressLabel}
-          </span>
-        </div>
+        <ProgressBar
+          bottomLeftContent={
+            <span className="textSecondary">
+              Step {progressIndex + 1} of {PROGRESS_STEPS.length} · {progressLabel}
+            </span>
+          }
+          className={styles.foot}
+          value={((progressIndex + 1) / PROGRESS_STEPS.length) * 100}
+        />
       )}
     </div>
   );
