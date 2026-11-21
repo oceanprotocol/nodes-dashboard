@@ -39,17 +39,29 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const EMAIL_HINT = 'We will send you a 6-digit code. No password to remember.';
 const SIGN_IN_TIMEOUT_MS = 45_000;
 
+const NEXT_BASE_ORIGIN = 'http://localhost';
+
+// Resolved the way the router will resolve it, so a value the URL parser rewrites into another
+// origin (tabs, backslashes) is rejected rather than followed.
 const readSafeNext = (next: string | string[] | undefined) => {
+  if (typeof next !== 'string' || !next.startsWith('/')) {
+    return null;
+  }
+  let url: URL;
+  try {
+    url = new URL(next, NEXT_BASE_ORIGIN);
+  } catch {
+    return null;
+  }
   if (
-    typeof next !== 'string' ||
-    next === '/' ||
-    !next.startsWith('/') ||
-    next.startsWith('//') ||
-    next.startsWith(LOGIN_PATH)
+    url.origin !== NEXT_BASE_ORIGIN ||
+    url.pathname === '/' ||
+    url.pathname.startsWith('//') ||
+    url.pathname.startsWith(LOGIN_PATH)
   ) {
     return null;
   }
-  return next;
+  return `${url.pathname}${url.search}${url.hash}`;
 };
 
 const LoginPage = () => {
@@ -73,6 +85,7 @@ const LoginPage = () => {
   const connectedAddress = account.isConnected ? account.address : undefined;
   const onboarding = useQuery({
     enabled: !!connectedAddress,
+    gcTime: 0,
     queryFn: () => fetchOnboardingStatus(connectedAddress as string),
     queryKey: ['onboarding', connectedAddress],
     refetchOnWindowFocus: false,

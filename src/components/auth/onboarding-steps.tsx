@@ -7,6 +7,7 @@ import {
   findGoal,
   findProfile,
   findSource,
+  getOnboardingDestination,
   Lane,
   ONBOARDING_QUESTIONS,
   SOURCE_DETAIL_MAX_LENGTH,
@@ -46,6 +47,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
 
   const [goals, setGoals] = useState<string[]>([]);
   const [profile, setProfile] = useState<string | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [source, setSource] = useState<string | null>(null);
   const [sourceDetail, setSourceDetail] = useState('');
   const [step, setStep] = useState<Step>('profile');
@@ -113,10 +115,19 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
       setStep('done');
     } catch (cause) {
       console.error('Saving onboarding answers failed:', cause);
-      toast.error('Could not save your answers. Try again.');
+      toast.error('Could not save your answers. Try again, or continue without saving.');
+      setSaveFailed(true);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const skip = () => {
+    if (saveFailed) {
+      router.replace(nextPath ?? getOnboardingDestination(goals));
+      return;
+    }
+    finish(true);
   };
 
   const renderProfile = () => (
@@ -276,12 +287,18 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
           />
         )}
         <div className={classNames('actionsGroupMdBetween', styles.actions)}>
-          <Button className={styles.back} onClick={() => setStep('goals')} size="md" variant="transparent">
+          <Button
+            className={styles.back}
+            disabled={submitting}
+            onClick={() => setStep('goals')}
+            size="md"
+            variant="transparent"
+          >
             Back
           </Button>
           <div className="actionsGroupMdEnd">
-            <Button disabled={submitting} onClick={() => finish(true)} size="md" variant="transparent">
-              Skip
+            <Button disabled={submitting} onClick={skip} size="md" variant="transparent">
+              {saveFailed ? 'Continue without saving' : 'Skip'}
             </Button>
             <Button color="accent1" loading={submitting} onClick={() => finish(false)} size="lg">
               Finish

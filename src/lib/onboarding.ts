@@ -76,8 +76,10 @@ export const getOnboardingDestination = (goals: string[]) => {
   return NAV_TREE[getCommonNavNode(nodes)].path;
 };
 
+const REQUEST_TIMEOUT_MS = 8000;
+
 const requestStatus = async (input: string, init?: RequestInit): Promise<OnboardingStatus> => {
-  const response = await fetch(input, init);
+  const response = await fetch(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!response.ok) {
     throw new Error(`Onboarding request failed with ${response.status}`);
   }
