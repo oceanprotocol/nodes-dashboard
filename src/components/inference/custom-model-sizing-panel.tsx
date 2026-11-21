@@ -9,6 +9,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import SubjectIcon from '@mui/icons-material/Subject';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { CircularProgress } from '@mui/material';
 import cx from 'classnames';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
@@ -41,6 +42,8 @@ export type CustomModelSizingPanelProps = {
   gaps?: Partial<CustomModelSizingGaps>;
   /** No environment holds the estimate: ring the context control, the thing to change. */
   highlightContext?: boolean;
+  /** Leave the context control out: llama.cpp gets no estimate to size, and its context isn't carried over. */
+  hideContext?: boolean;
 };
 
 export type CustomModelSizingPanelHandle = {
@@ -80,6 +83,7 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
       widths,
       gaps = {},
       highlightContext = false,
+      hideContext = false,
     },
     ref
   ) {
@@ -147,8 +151,8 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
           <div className={styles.unestimated}>
             <strong>Can’t estimate this model</strong>
             <p>
-              Its repo lists no safetensors parameter count, so every environment is shown, whatever its memory. Check
-              the model card for its size before you book.
+              Its repo lists no safetensors parameter count, so no environment is checked against its memory. Check the
+              model card for its size before you book.
             </p>
           </div>
         );
@@ -181,40 +185,44 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
     return (
       <div ref={panelRef}>
         <Card direction="column" padding="sm" radius="md" shadow="black" spacing="md" variant="glass">
-          <div className={styles.sections}>
-            <SettingsSection
-              description={
-                <span>
-                  Max tokens per request, input + output.
-                  <br />
-                  Carries over to Max context in Config.
-                </span>
-              }
-              icon={<SubjectIcon />}
-              title="Context length"
-            >
-              <TabBar
-                activeKey={choices[checkedIndex]?.value ?? ''}
-                ariaLabel="Context length"
-                cardVariant="glass"
-                className={cx(styles.choices, highlightContext && styles.highlight)}
-                disabled={contextUnknown}
-                selectedButtonColor="accent1"
-                size="sm"
-                tabs={choices.map((choice) => ({
-                  key: choice.value,
-                  label: (
-                    <>
-                      {choice.label}
-                      {choice.suffix && <span className={styles.suffix}>{choice.suffix}</span>}
-                    </>
-                  ),
-                  onClick: () => onContextChange(choice.value),
-                }))}
-              />
-            </SettingsSection>
+          <div className={cx(styles.sections, hideContext && styles.sectionsSingle)}>
+            {!hideContext && (
+              <>
+                <SettingsSection
+                  description={
+                    <span>
+                      Max tokens per request, input + output.
+                      <br />
+                      Carries over to Max context in Config.
+                    </span>
+                  }
+                  icon={<SubjectIcon />}
+                  title="Context length"
+                >
+                  <TabBar
+                    activeKey={choices[checkedIndex]?.value ?? ''}
+                    ariaLabel="Context length"
+                    cardVariant="glass"
+                    className={cx(styles.choices, highlightContext && styles.highlight)}
+                    disabled={contextUnknown}
+                    selectedButtonColor="accent1"
+                    size="sm"
+                    tabs={choices.map((choice) => ({
+                      key: choice.value,
+                      label: (
+                        <>
+                          {choice.label}
+                          {choice.suffix && <span className={styles.suffix}>{choice.suffix}</span>}
+                        </>
+                      ),
+                      onClick: () => onContextChange(choice.value),
+                    }))}
+                  />
+                </SettingsSection>
 
-            <Divider className={styles.sectionDivider} />
+                <Divider className={styles.sectionDivider} />
+              </>
+            )}
 
             <SettingsSection
               className={styles.gpuSection}
@@ -224,7 +232,7 @@ const CustomModelSizingPanel = forwardRef<CustomModelSizingPanelHandle, CustomMo
                     <span className={styles.wide}>
                       Per GPU, for the weights plus the context cache.
                       <br />
-                      Environments that can hold any one of these layouts are listed.
+                      An estimate: each environment says whether its free GPUs hold one of these layouts.
                     </span>
                     <span className={styles.narrow}>
                       Any one layout works. Per GPU, for the weights plus the context cache.
@@ -268,17 +276,17 @@ export function SizingListHeader({ context }: { context: string }) {
   return <p className={styles.listHeader}>The following environments can hold this model at {context} context.</p>;
 }
 
-/** In place of the environment list when no environment holds the estimate. */
+/** Above the environments when none is estimated to hold the model: they stay listed and bookable below. */
 export function NoFitCard({ context, onChooseShorter }: { context: string; onChooseShorter: () => void }) {
   return (
     <div className={styles.noFit}>
       <span aria-hidden className={styles.noFitIcon}>
         <SearchOffIcon />
       </span>
-      <strong>No environment can hold this model at {context} context</strong>
+      <strong>No environment is estimated to hold this model at {context} context</strong>
       <p>
-        The free GPUs are smaller than every layout above. Choose a shorter context, or pick a quantized variant of the
-        model.
+        The free GPUs below are smaller than every layout above, so the model may run out of memory. Choose a shorter
+        context or a quantized variant, or book one anyway: this is an estimate.
       </p>
       <Button className={styles.shorter} color="accent1" onClick={onChooseShorter} size="sm" variant="outlined">
         Choose a shorter context
@@ -287,10 +295,18 @@ export function NoFitCard({ context, onChooseShorter }: { context: string; onCho
   );
 }
 
-/** "Fits as 1, 2 or 4 GPUs" — the layouts an environment's free GPUs can book, for its card. */
+/**
+ * "Fits as 1, 2 or 4 GPUs" — the layouts an environment's free GPUs can book, for its card. No layout is
+ * a warning, not a block: the estimate is advisory and the environment stays bookable.
+ */
 export function FitSummary({ gpuCounts }: { gpuCounts: number[] }) {
   if (gpuCounts.length === 0) {
-    return null;
+    return (
+      <div className={styles.fitSummary}>
+        <WarningAmberIcon aria-hidden className={styles.noFitWarningIcon} />
+        Free GPUs here are estimated to be too small for this model
+      </div>
+    );
   }
   const last = gpuCounts[gpuCounts.length - 1];
   return (

@@ -10,6 +10,18 @@
   }
 }
 
+/* Estimate only (no context control): one full-width column, no divider rule. */
+.sectionsSingle {
+  @media (min-width: 1200px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .gpuSection {
+    border-left: none;
+    padding-left: 0;
+  }
+}
+
 .sectionDivider {
   @media (min-width: 1200px) {
     display: none;
@@ -206,5 +218,10 @@
 
 .fitIcon {
   color: var(--success-darker);
+  font-size: 16px !important;
+}
+
+.noFitWarningIcon {
+  color: var(--warning-darker);
   font-size: 16px !important;
 }

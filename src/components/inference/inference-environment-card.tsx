@@ -93,9 +93,8 @@ type InferenceEnvironmentCardProps = {
   forcedGpuCount?: number;
   /**
    * A line under the resources saying which layouts this env holds (the custom-model picker's
-   * "Fits as 1, 2 or 4 GPUs"). Optional and self-contained: omit it to drop the line.
    */
-  fitSummary?: React.ReactNode;
+  fitSummary?: (environment: ComputeEnvironment) => React.ReactNode;
   /**
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
@@ -111,6 +110,7 @@ type InferenceEnvironmentCardProps = {
    * touches escrow), so quoting this env's rate would name a charge that is never made.
    */
   hidePrice?: boolean;
+  showSubsidy?: boolean;
 };
 
 const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
@@ -130,6 +130,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   fitSummary,
   forcedGpuCount,
   allowZeroGpu = false,
+  showSubsidy = false,
 }) => {
   const { account, provider } = useOceanAccount();
 
@@ -547,7 +548,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             </Button>
             {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
           </span>
-          <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
+          {showSubsidy && <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />}
         </div>
         {nodeInfo.latestBenchmarkResults ? (
           <BenchmarkSummary
@@ -563,7 +564,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         <div className={styles.envResources}>
           {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
           {computeText && <div className={styles.compute}>{computeText}</div>}
-          {fitSummary}
+          {fitSummary?.(environment)}
           {onSelect && durationRangeText && (
             <div className={styles.duration}>Service duration: {durationRangeText}</div>
           )}

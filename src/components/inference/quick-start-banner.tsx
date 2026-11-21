@@ -62,6 +62,7 @@ type QuickStartBannerProps<T extends QuickStartEntry> = {
   durationSeconds: number;
   onDurationChange: (seconds: number) => void;
   onAdvanced: () => void;
+  showSubsidy?: boolean;
 };
 
 /**
@@ -74,6 +75,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
   durationSeconds,
   onDurationChange,
   onAdvanced,
+  showSubsidy = false,
 }: QuickStartBannerProps<T>) {
   const { status, option, belowRecommendedResources, loadError, retry, suggestedDurationSeconds } = quickStart;
   const hasDuration = durationSeconds > 0;
@@ -162,7 +164,9 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
               <VerifiedIcon aria-label="Verified node" className={styles.verified} />
             </Tooltip>
           )}
-          <SubsidizedNodeChip nodeAddress={candidate.entry.env.environment.consumerAddress} peerId={node.id} />
+          {showSubsidy && (
+            <SubsidizedNodeChip nodeAddress={candidate.entry.env.environment.consumerAddress} peerId={node.id} />
+          )}
         </div>
         {belowRecommendedResources && (
           <div className={styles.note}>

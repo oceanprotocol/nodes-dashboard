@@ -1,4 +1,4 @@
-import { isGgufRepoId } from '@/services/model-compatibility';
+import { isGgufRepoId, needsWeightFormats } from '@/services/model-compatibility';
 import { getVllmModelPreset } from '@/services/vllm-model-presets';
 import {
   HfModelShape,
@@ -216,6 +216,44 @@ async function fetchModelTextFile(
   return response.data;
 }
 
+type RawHfSibling = { rfilename?: string; size?: number };
+
+/**
+ * Total size in bytes of the safetensors weights vLLM loads at `revision`: the top-level `*.safetensors`
+ * files (subfolders hold other formats or components, e.g. `original/`). Mistral repos ship the same
+ * weights twice, as HF shards and as `consolidated*.safetensors`; the consolidated copy is dropped
+ * whenever shards exist. Null on any failure or a file without a size — sizing then falls back to
+ * parameter counts. Never throws: config.json's own fetch reports auth errors.
+ */
+async function fetchSafetensorsBytes(modelId: string, token?: string, revision = 'main'): Promise<number | null> {
+  let response;
+  try {
+    response = await http.get<{ siblings?: RawHfSibling[] }>(
+      `${HF_API_URL}/${encodeModelPath(modelId)}/revision/${encodeURIComponent(revision || 'main')}`,
+      {
+        params: { blobs: true, 'expand[]': 'siblings' },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        validateStatus: () => true,
+      }
+    );
+  } catch {
+    return null;
+  }
+  if (response.status < 200 || response.status >= 300 || !Array.isArray(response.data?.siblings)) {
+    return null;
+  }
+  const weights = response.data.siblings.filter(
+    (file) =>
+      typeof file.rfilename === 'string' && !file.rfilename.includes('/') && file.rfilename.endsWith('.safetensors')
+  );
+  const shards = weights.filter((file) => !file.rfilename?.startsWith('consolidated'));
+  const loaded = shards.length > 0 ? shards : weights;
+  if (loaded.length === 0 || loaded.some((file) => typeof file.size !== 'number' || file.size <= 0)) {
+    return null;
+  }
+  return loaded.reduce((total, file) => total + (file.size ?? 0), 0);
+}
+
 type RawHfModel = {
   id: string;
   author?: string;
@@ -228,7 +266,21 @@ type RawHfModel = {
   library_name?: string;
   gated?: boolean | string;
   safetensors?: { total?: number; parameters?: Record<string, number> };
+  /** Only on the model-detail response, never the list. */
+  siblings?: RawHfSibling[];
 };
+
+/** Which weight formats a repo's files hold, anywhere in the tree. Undefined without a file list. */
+function weightFormatsOf(siblings: RawHfSibling[] | undefined): HuggingFaceModel['weightFormats'] {
+  if (!Array.isArray(siblings)) {
+    return undefined;
+  }
+  const names = siblings.flatMap((file) => (typeof file.rfilename === 'string' ? [file.rfilename.toLowerCase()] : []));
+  return {
+    gguf: names.some((name) => name.endsWith('.gguf')),
+    checkpoint: names.some((name) => name.endsWith('.safetensors') || name.endsWith('.bin')),
+  };
+}
 
 /**
  * Fields requested from the list endpoint via `expand[]`. This is the complete set — `expand[]`
@@ -271,6 +323,7 @@ function mapModel(raw: RawHfModel): HuggingFaceModel {
       raw.safetensors?.parameters && Object.keys(raw.safetensors.parameters).length > 0
         ? raw.safetensors.parameters
         : undefined,
+    weightFormats: weightFormatsOf(raw.siblings),
   };
 }
 
@@ -436,6 +489,26 @@ export async function fetchHuggingFaceModel(modelId: string): Promise<HuggingFac
 }
 
 /**
+ * The model with `weightFormats` filled in when isGgufOnlyModel needs it (see needsWeightFormats) — a
+ * list-response model never carries the file list. Never throws: on any failure the model comes back
+ * unchanged, and an unknown file list keeps both engines.
+ */
+export async function withWeightFormats(model: HuggingFaceModel): Promise<HuggingFaceModel> {
+  if (!needsWeightFormats(model)) {
+    return model;
+  }
+  try {
+    const response = await http.get<{ siblings?: RawHfSibling[] }>(`${HF_API_URL}/${encodeModelPath(model.id)}`, {
+      params: { 'expand[]': 'siblings' },
+    });
+    const weightFormats = weightFormatsOf(response.data?.siblings);
+    return weightFormats ? { ...model, weightFormats } : model;
+  } catch {
+    return model;
+  }
+}
+
+/**
  * Pulls per-model engine defaults from HF config.json (context ceiling, dtype, arch, quantization)
  * and tool support from the chat template (tokenizer_config.json + standalone chat_template.jinja).
  * Returns nulls for anything missing — caller falls back to its own defaults.
@@ -447,11 +520,12 @@ export async function fetchHuggingFaceModelConfig(
   token?: string,
   revision?: string
 ): Promise<HuggingFaceModelConfig> {
-  const [config, tokenizerConfig, chatTemplateFile] = await Promise.all([
+  const [config, tokenizerConfig, chatTemplateFile, weightBytes] = await Promise.all([
     fetchModelFile<RawHfConfig>(modelId, 'config.json', token, revision),
     fetchModelFile<RawHfTokenizerConfig>(modelId, 'tokenizer_config.json', token, revision),
     // Some models ship the chat template as a standalone file instead of inside tokenizer_config.json.
     fetchModelTextFile(modelId, 'chat_template.jinja', token, revision),
+    fetchSafetensorsBytes(modelId, token, revision),
   ]);
 
   const supportsTools =
@@ -468,6 +542,7 @@ export async function fetchHuggingFaceModelConfig(
     supportsTools,
     attention: readAttentionShape(config),
     shape: readModelShape(config),
+    weightBytes,
   };
 }
 
@@ -541,9 +616,12 @@ export function inferToolCallParser(config: HuggingFaceModelConfig | null): Tool
 
 // vLLM launch-param defaults, used when the model config doesn't pin a value.
 const DEFAULT_GPU_MEMORY_UTILIZATION = 0.9;
-// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff) and CPU-only offload.
+// llama.cpp defaults: quant tag most GGUF repos ship (good size/quality tradeoff). GPU offload follows
+// the booking: -1 (every layer that fits) when GPUs are booked, so a paid GPU isn't left idle while the
+// model crawls on CPU; 0 (CPU only) otherwise — offload on a GPU-less env would pick the CUDA image.
 const DEFAULT_GGUF_QUANT = 'Q4_K_M';
-const DEFAULT_LLAMA_GPU_LAYERS = 0;
+const DEFAULT_LLAMA_GPU_LAYERS_GPU = -1;
+const DEFAULT_LLAMA_GPU_LAYERS_CPU = 0;
 
 /** Ocean's supported inference engines, for selectors. `vllm` is the default. */
 export const INFERENCE_ENGINE_OPTIONS: { label: string; value: InferenceEngine }[] = [
@@ -559,12 +637,12 @@ export const DEFAULT_INFERENCE_ENGINE: InferenceEngine = 'vllm';
  * starting suggestion the user is expected to correct: `bartowski` re-publishes most popular models
  * as `<repo>-GGUF`, so we point there. Empty for a bare id with no author.
  *
- * A model id that is ALREADY a GGUF repo is returned untouched — the user picked the exact repo to
- * serve, so re-pointing it at `bartowski/<that>-GGUF` would replace a correct answer with a guess at
- * a repo that doesn't exist.
+ * A model id that is ALREADY a GGUF repo — named so, or known to be (`ggufOnly`, see isGgufOnlyModel)
+ * — is returned untouched: the user picked the exact repo to serve, so re-pointing it at
+ * `bartowski/<that>-GGUF` would replace a correct answer with a guess at a repo that doesn't exist.
  */
-export function guessGgufRepo(modelId: string): string {
-  if (isGgufRepoId(modelId)) {
+export function guessGgufRepo(modelId: string, ggufOnly = false): string {
+  if (ggufOnly || isGgufRepoId(modelId)) {
     return modelId;
   }
   const repo = getModelShortName(modelId);
@@ -640,16 +718,21 @@ function buildVllmDefaults(config: HuggingFaceModelConfig | null, modelId: strin
 }
 
 /** llama.cpp launch-param defaults. Seeds a best-guess GGUF repo + common quant; user corrects both. */
-function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: string): LlamaCppParameters {
+function buildLlamaCppDefaults(
+  config: HuggingFaceModelConfig | null,
+  modelId: string,
+  ggufOnly: boolean,
+  hasGpu: boolean
+): LlamaCppParameters {
   return {
     engine: 'llamacpp',
     servedModelName: getModelShortName(modelId),
     customParams: [],
-    ggufRepo: guessGgufRepo(modelId),
+    ggufRepo: guessGgufRepo(modelId, ggufOnly),
     ggufQuant: DEFAULT_GGUF_QUANT,
     // Seed the model's reported context; null lets llama.cpp use its trained default.
     contextLength: config?.maxContext ?? null,
-    gpuLayers: DEFAULT_LLAMA_GPU_LAYERS,
+    gpuLayers: hasGpu ? DEFAULT_LLAMA_GPU_LAYERS_GPU : DEFAULT_LLAMA_GPU_LAYERS_CPU,
     // Jinja on by default so chat/tool templates work; the models we serve are chat models.
     jinja: true,
   };
@@ -659,14 +742,21 @@ function buildLlamaCppDefaults(config: HuggingFaceModelConfig | null, modelId: s
  * Build the launch parameters for a model + engine from its HF config, falling back to neutral
  * defaults for anything the config doesn't pin. Passing `config: null` yields the pure defaults —
  * the fallback used for a selection whose params haven't been committed yet. The engine picks which
- * branch of ModelParameters is returned (defaults to vLLM).
+ * branch of ModelParameters is returned (defaults to vLLM). `ggufOnly`: the model repo is itself the GGUF
+ * repo llama.cpp serves (see isGgufOnlyModel), even when its id doesn't say so. `hasGpu`: the booking
+ * holds GPUs, so llama.cpp offloads every layer by default. Left false where no booking is known
+ * (parsing a launch command), so an absent `-ngl` keeps meaning CPU.
  */
 export function buildModelDefaults(
   config: HuggingFaceModelConfig | null,
   modelId: string,
-  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE
+  engine: InferenceEngine = DEFAULT_INFERENCE_ENGINE,
+  ggufOnly = false,
+  hasGpu = false
 ): ModelParameters {
-  return engine === 'llamacpp' ? buildLlamaCppDefaults(config, modelId) : buildVllmDefaults(config, modelId);
+  return engine === 'llamacpp'
+    ? buildLlamaCppDefaults(config, modelId, ggufOnly, hasGpu)
+    : buildVllmDefaults(config, modelId);
 }
 
 /** Short display name for a model id — the repo part after the `author/` prefix. */
