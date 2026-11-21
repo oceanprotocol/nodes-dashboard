@@ -18,7 +18,7 @@ import {
 } from '@/services/huggingface-service';
 import { VLLM_TAG } from '@/services/inference-launch';
 import { firstQueryValue } from '@/services/inference-url';
-import { getArchitectureIncompatibility } from '@/services/model-compatibility';
+import { getArchitectureIncompatibility, isGgufOnlyModel } from '@/services/model-compatibility';
 import {
   bookedVramGb,
   customModelSizing,
@@ -262,6 +262,8 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   const [loadError, setLoadError] = useState<string | null>(null);
   // Feedback for the explicit "Reload defaults" action (initial load stays silent beyond the spinner).
   const [reloadStatus, setReloadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  // Raw GPU-layers text while the field is being typed in (null otherwise) — see its onChange.
+  const [gpuLayersDraft, setGpuLayersDraft] = useState<string | null>(null);
 
   // Derived, not state: it's a pure function of the loaded config, so it can't go stale against it.
   const architectureWarning = getArchitectureIncompatibility(config?.architecture);
@@ -406,8 +408,10 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
   // committed params are only merged when they match the SELECTED engine — switching engine drops the
   // old branch's fields and starts from that engine's fresh defaults (their shapes don't overlap).
   const committedParams = modelParamsByModel[modelId];
+  const modelEntry = selectedModels.find((m) => m.id === modelId);
+  const ggufOnly = !!modelEntry && isGgufOnlyModel(modelEntry);
   const initialValues = useMemo(() => {
-    const defaults = buildModelDefaults(defaultsConfig, modelId, engine);
+    const defaults = buildModelDefaults(defaultsConfig, modelId, engine, ggufOnly, bookedGpus > 0);
     if (committedParams && committedParams.engine === engine) {
       return { ...defaults, ...committedParams } as ModelParametersType;
     }
@@ -416,28 +420,32 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
       return { ...defaults, maxContext: ceiling !== null ? Math.min(sizingContext, ceiling) : sizingContext };
     }
     return defaults;
-  }, [committedParams, defaultsConfig, modelId, engine, sizingContext]);
+  }, [committedParams, defaultsConfig, modelId, engine, ggufOnly, bookedGpus, sizingContext]);
 
-  // Whether the launch settings still fit the booked GPUs, by the same per-width estimate the env picker
-  // listed environments with (customModelSizing) — blocking, like that filter. Context, precision,
-  // quantization and the memory share all move the estimate, so this re-runs on every edit. A misfit
-  // names the largest context that would fit, or says none does with these settings. Also blocks a booked
-  // width the model's heads can't split across (vLLM refuses to start).
+  // Checks the launch settings against the booked GPUs with the same per-width estimate the env picker
+  // shows (customModelSizing). Only a booked width the model's heads can't split across is an `error`
+  // (vLLM refuses to start); a VRAM misfit is a `warning`, never blocking, since it rests on an estimate.
+  // Context, precision, quantization and the memory share all move the estimate, so this re-runs on every
+  // edit. A misfit names the largest context that would fit, or says none does with these settings.
   const selectedModel = selectedModels.find((m) => m.id === modelId);
-  const fitError = useCallback(
-    (values: ModelParametersType): string | null => {
+  const fitCheck = useCallback(
+    (values: ModelParametersType): { error: string | null; warning: string | null } => {
+      const ok = { error: null, warning: null };
       if (values.engine !== 'vllm' || isPackageHandoff || !selectedModel || !selectedEnv || bookedGpus < 1) {
-        return null;
+        return ok;
       }
       const sizingFor = (params: ModelParametersType) =>
         customModelSizing({ model: selectedModel, config, params, engine: 'vllm' });
       const sizing = sizingFor(values);
       if (sizing.widths && !sizing.widths.includes(bookedGpus)) {
-        return `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM would refuse to start. Go back and book one of those counts.`;
+        return {
+          error: `This model's attention heads don't split across ${bookedGpus} GPUs (it can use ${sizing.widths.join(', ')}), so vLLM would refuse to start. Go back and book one of those counts.`,
+          warning: null,
+        };
       }
       const plan = selectedEnv.gpuPlan;
       if (!sizing.requirement || !plan) {
-        return null;
+        return ok;
       }
       const fits = (params: ModelParametersType) => {
         const requirement = sizingFor(params).requirement;
@@ -447,7 +455,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         );
       };
       if (fits(values)) {
-        return null;
+        return ok;
       }
       const booked = bookedVramGb(selectedEnv.environment, selectedEnv.gpuSelection);
       const gpus = `the ${bookedGpus} booked GPU${bookedGpus === 1 ? '' : 's'}${booked === null ? '' : ` (${Math.floor(booked)} GB)`}`;
@@ -458,9 +466,13 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         contextFloor,
         ceiling
       );
-      return fittingContext !== null
-        ? `Doesn't fit ${gpus} at this context: estimated to need ${need}. Lower Max context to ${fittingContext} or less, or go back and book more GPUs.`
-        : `Doesn't fit ${gpus} with these settings at any context: estimated to need ${need}. Use a quantized variant or FP8 quantization, or go back and book more GPUs.`;
+      return {
+        error: null,
+        warning:
+          fittingContext !== null
+            ? `May not fit ${gpus} at this context: estimated to need ${need}. Lowering Max context to ${fittingContext} or less, or booking more GPUs, should fit. You can still continue.`
+            : `May not fit ${gpus} with these settings at any context: estimated to need ${need}. A quantized variant, FP8 quantization or more GPUs should fit. You can still continue.`,
+      };
     },
     [isPackageHandoff, selectedModel, selectedEnv, bookedGpus, config, contextCeiling, contextFloor]
   );
@@ -470,16 +482,17 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
     initialValues,
     validate: (v) => {
       const errors = validateParams(v, contextCeiling, contextFloor, bookedGpus);
-      const fit = fitError(v);
-      if (fit) {
-        errors.vramFit = fit;
+      const widthError = fitCheck(v).error;
+      if (widthError) {
+        errors.gpuWidth = widthError;
       }
       return errors;
     },
     onSubmit: () => {},
   });
-  // Shown as soon as it applies, not only after a submit: it explains why Continue is blocked.
-  const vramFitError = useMemo(() => fitError(formik.values), [fitError, formik.values]);
+  // Shown as soon as it applies, not only after a submit: the error explains why Continue is blocked,
+  // the warning that the estimate expects the launch to run out of GPU memory.
+  const fit = useMemo(() => fitCheck(formik.values), [fitCheck, formik.values]);
 
   // Show a field error only once the user has touched it. Typed loosely (string) because the field
   // set differs per engine branch — the form values are a discriminated union.
@@ -519,7 +532,7 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
         if (result) {
           // requestEngine, not the live one: `revision` was captured for it, so building defaults for
           // anything else would merge a vLLM field into a llama.cpp value set.
-          const defaults = buildModelDefaults(result, modelId, requestEngine);
+          const defaults = buildModelDefaults(result, modelId, requestEngine, ggufOnly, bookedGpus > 0);
           // `revision` is only set for vLLM, so `defaults` is the vLLM branch here — but TS can't
           // correlate the two, so re-assert the union type on the merged values.
           const values = (revision ? { ...defaults, revision } : defaults) as ModelParametersType;
@@ -796,9 +809,14 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
               valueLabelFormat={(value) => String(value)}
             />
           )}
-          {vramFitError && (
+          {fit.error && (
             <div className="textError" role="alert">
-              {vramFitError}
+              {fit.error}
+            </div>
+          )}
+          {fit.warning && (
+            <div className="textWarningDarker" role="status">
+              {fit.warning}
             </div>
           )}
           <Select<KvCacheDtype>
@@ -926,20 +944,29 @@ const ModelParameters = forwardRef<ModelParametersHandle, ModelParametersProps>(
             hint="-ngl"
             label={labelWithInfo(
               'GPU layers',
-              'How many model layers to offload to the GPU. -1 offloads every layer that fits (the usual choice on a GPU node). 0 runs entirely on CPU (works everywhere). A positive number offloads exactly that many. Anything other than 0 launches the CUDA-built llama.cpp image and needs enough VRAM.'
+              'How many model layers to offload to the GPU. -1 offloads every layer that fits (the default when GPUs are booked). 0 runs entirely on CPU (works everywhere). A positive number offloads exactly that many. Anything other than 0 launches the CUDA-built llama.cpp image and needs enough VRAM.'
             )}
             min={-1}
             name="gpuLayers"
-            onBlur={formik.handleBlur}
-            onChange={(e) => {
-              // Empty input (or a stray '-' mid-typing) → NaN; keep it at 0 rather than writing NaN
-              // into the form, which would stringify to a broken `-ngl NaN` flag.
-              const parsed = Number(e.target.value.trim());
-              formik.setFieldValue('gpuLayers', Number.isFinite(parsed) ? parsed : 0);
+            onBlur={(e) => {
+              setGpuLayersDraft(null);
+              formik.handleBlur(e);
             }}
-            placeholder="0"
+            onChange={(e) => {
+              // A number input reads a lone '-' (the start of -1) back as ''. Coercing that to 0 made
+              // React write "0" into the field and wipe the minus, so -1 couldn't be typed. Keep the raw
+              // text while typing and commit only a parseable value — never NaN, which would stringify
+              // to a broken `-ngl NaN` flag. Blur drops the draft and shows the last committed value.
+              const raw = e.target.value.trim();
+              setGpuLayersDraft(raw);
+              const parsed = Number(raw);
+              if (raw !== '' && Number.isFinite(parsed)) {
+                formik.setFieldValue('gpuLayers', parsed);
+              }
+            }}
+            placeholder={bookedGpus > 0 ? '-1' : '0'}
             type="number"
-            value={v.gpuLayers}
+            value={gpuLayersDraft ?? v.gpuLayers}
           />
           <div>
             <Switch

@@ -93,9 +93,8 @@ type InferenceEnvironmentCardProps = {
   forcedGpuCount?: number;
   /**
    * A line under the resources saying which layouts this env holds (the custom-model picker's
-   * "Fits as 1, 2 or 4 GPUs"). Optional and self-contained: omit it to drop the line.
    */
-  fitSummary?: React.ReactNode;
+  fitSummary?: (environment: ComputeEnvironment) => React.ReactNode;
   /**
    * Whether a 0-unit pick is offerable at all on this card. Defaults to false, preserving today's
    * behavior exactly ("select at least one GPU unit to continue"). Even when true, zero only actually
@@ -565,7 +564,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
         <div className={styles.envResources}>
           {hasGpus && <div className={styles.gpuTypes}>{renderGpuTypes()}</div>}
           {computeText && <div className={styles.compute}>{computeText}</div>}
-          {fitSummary}
+          {fitSummary?.(environment)}
           {onSelect && durationRangeText && (
             <div className={styles.duration}>Service duration: {durationRangeText}</div>
           )}
