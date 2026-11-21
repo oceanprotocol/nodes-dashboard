@@ -18,6 +18,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 - **Web3 Wallet Support** – Two independent paths: native wallets connect via EIP-6963 discovery + Ethers.js, and email magic link / passkey / Google OAuth go through Privy + Alchemy Account Kit to a smart contract account.
 - **ENS Resolution** – Display human-readable ENS names for wallet addresses.
 - **Analytics** – Dedicated analytics layer (summaries, rewards history, GPU stats) from the `analytics` backend.
+- **Onboarding** – Short questionnaire after first login (who you are, what you want to do, how you found us). Answers are stored in Postgres and decide where the user lands next.
 - **Node Storage** – Per-node persistent storage for compute consumers to upload files for using in compute jobs. Browse and create buckets on a node, upload/delete files, and control access via reusable on-chain access lists.
 
 ---
@@ -37,6 +38,7 @@ A Next.js web application for monitoring and interacting with Ocean Network. It 
 | Map             | [Leaflet](https://leafletjs.com/)                                                                                                      |
 | Forms           | [Formik](https://formik.org/) + [Yup](https://github.com/jquense/yup)                                                                  |
 | AI              | [Google Generative AI](https://ai.google.dev/) (Gemini)                                                                                |
+| Database        | [Neon](https://neon.com/) Postgres + [Drizzle ORM](https://orm.drizzle.team/)                                                          |
 | Package Manager | Yarn 4 (Berry)                                                                                                                         |
 
 ---
@@ -60,6 +62,14 @@ Copy `.env.example` and fill in the required values (see [Environment Variables]
 
 ```bash
 cp .env.example .env.local
+```
+
+### Set up the database
+
+Point `DATABASE_URL` and `DATABASE_URL_UNPOOLED` at a Neon branch of your own (see [Database](#database)), then create the tables:
+
+```bash
+yarn db:migrate
 ```
 
 ### Run the development server
@@ -171,6 +181,46 @@ for other models.
 
 ---
 
+## Database
+
+Onboarding answers are stored in [Neon](https://neon.com/) Postgres, provisioned through the Vercel Neon integration and accessed with [Drizzle ORM](https://orm.drizzle.team/).
+
+- **Schema:** `src/db/schema.ts`. **Client:** `getDb()` in `src/db/index.ts`, for API routes only.
+- **Migrations:** generated SQL in `drizzle/`, including `drizzle/meta/`. Commit these files and never edit them by hand.
+
+### Changing the schema
+
+1. Edit `src/db/schema.ts`.
+2. Run `yarn db:generate --name <change>` to create a migration in `drizzle/`.
+3. Run `yarn db:migrate` to apply it to the branch in your env.
+4. Commit the schema and the generated files together.
+
+### Branches and environments
+
+Each Neon branch is a separate database with its own connection strings. Get them from the Neon Console (**Connect** → pick the branch; pooled for `DATABASE_URL`, unpooled for `DATABASE_URL_UNPOOLED`).
+
+| Branch      | Used by                                         |
+| ----------- | ----------------------------------------------- |
+| `main`      | Production                                      |
+| `preview/*` | Vercel preview deployments, copied from `main`  |
+| your own    | Local development; don't develop against `main` |
+
+Migrations are **not** applied on deploy. Run `yarn db:migrate` against `main` before deploying a schema change, and against any existing branch you keep using.
+
+---
+
+## Onboarding
+
+New users answer three questions after their first login. The flow is driven by `src/lib/onboarding-questions.json`: profile options, goals grouped into tabs, and "how did you find us" sources.
+
+- **Redirect:** each goal has a `destination`, a node id in the navigation tree (`src/lib/navigation-tree.ts`). The user lands on the deepest node shared by all their picked goals. For example, two template goals go to `/inference/templates`; a template goal plus a service goal goes to `/inference`; inference plus compute goals go to `/`.
+- **API:** `GET` and `POST` on `/api/onboarding` store answers in the `onboarding_answers` table, keyed by lowercased wallet address. Responses contain only `{ onboarded, destination }`, so the destination is always computed on the server.
+- **Override:** a valid `?next=` on `/login` wins over the computed destination.
+
+To change routing, edit a goal's `destination` in the JSON, or add a node to `NAV_TREE`. To move a page, update its path in `src/config.ts` or `INFERENCE_PATHS` and the tree follows.
+
+---
+
 ## API Backends
 
 The app connects to two backend environments, selected automatically via `NEXT_PUBLIC_APP_ENV`:
@@ -217,8 +267,9 @@ src/
 │   ├── leaderboard.tsx     # Leaderboard
 │   ├── account/            # Per-wallet account hub (activity, escrow, subsidy, access)
 │   ├── subsidy/            # Subsidy flow
-│   └── api/                # Next.js API routes (RPC proxy, Docker tags, subsidy)
+│   └── api/                # Next.js API routes (RPC proxy, Docker tags, subsidy, onboarding)
 ├── components/     # Reusable UI components
+├── db/             # Postgres schema and Drizzle client (server-only)
 ├── context/        # React context providers
 ├── contexts/       # React context providers
 ├── hooks/          # Custom React hooks
@@ -232,6 +283,7 @@ src/
 ├── assets/         # Static assets (SVGs, images)
 ├── lib/            # Web3-specific wrappers & configs
 └── config.ts       # App config, routes, and API route helpers
+drizzle/            # Generated SQL migrations + Drizzle metadata
 ```
 
 ---
