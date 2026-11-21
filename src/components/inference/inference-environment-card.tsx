@@ -110,6 +110,7 @@ type InferenceEnvironmentCardProps = {
    * touches escrow), so quoting this env's rate would name a charge that is never made.
    */
   hidePrice?: boolean;
+  showSubsidy?: boolean;
 };
 
 const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
@@ -129,6 +130,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
   fitSummary,
   forcedGpuCount,
   allowZeroGpu = false,
+  showSubsidy = false,
 }) => {
   const { account, provider } = useOceanAccount();
 
@@ -546,7 +548,7 @@ const InferenceEnvironmentCard: React.FC<InferenceEnvironmentCardProps> = ({
             </Button>
             {nodeInfo.verified ? <VerifiedIcon className={styles.verified} /> : null}
           </span>
-          <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />
+          {showSubsidy && <SubsidizedNodeChip nodeAddress={environment.consumerAddress} peerId={nodeInfo.id} />}
         </div>
         {nodeInfo.latestBenchmarkResults ? (
           <BenchmarkSummary
