@@ -1,5 +1,6 @@
-import Logo from '@/assets/logo.svg';
+import BrandLogo from '@/components/brand-logo/brand-logo';
 import Button from '@/components/button/button';
+import Divider from '@/components/divider/divider.module';
 import Input from '@/components/input/input';
 import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
 import { isAlchemyMigrationUser, needsEmbeddedWallet } from '@/lib/embedded-wallet';
@@ -21,10 +22,12 @@ import {
   type User,
 } from '@privy-io/react-auth';
 import { useQuery } from '@tanstack/react-query';
+import classNames from 'classnames';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
+import AuthHeading from './auth-heading';
 import styles from './login-page.module.css';
 import LoginShowcase, { ShowcaseFocus } from './login-showcase';
 import OnboardingSteps from './onboarding-steps';
@@ -228,12 +231,7 @@ const LoginPage = () => {
   const renderShell = (content: ReactNode) => (
     <div className={styles.shell}>
       <section aria-label="Sign in" className={styles.left}>
-        <div className={styles.brand}>
-          <Link aria-label="Ocean Network home" href="/">
-            <Logo className={styles.logo} />
-          </Link>
-          <span className={styles.beta}>BETA</span>
-        </div>
+        <BrandLogo />
         <div className={styles.main}>{content}</div>
       </section>
       <aside aria-label="Featured templates" className={styles.right}>
@@ -259,7 +257,7 @@ const LoginPage = () => {
   if (account.isConnected || finishing || oauthState.status === 'loading' || (isMigrating && !migrationDismissed)) {
     return renderShell(
       <div className={styles.root}>
-        <div className={styles.status} role="status">
+        <div className={classNames('flexColumn alignItemsCenter gapMd textSecondary', styles.status)} role="status">
           <CircularProgress size={32} />
           <p>Signing you in</p>
         </div>
@@ -271,10 +269,8 @@ const LoginPage = () => {
     return renderShell(
       <div className={styles.root}>
         <div className={styles.step}>
-          <h1>
-            Check your <em>inbox</em>
-          </h1>
-          <p className={styles.lead}>
+          <AuthHeading emphasis="inbox" title="Check your" />
+          <p className={classNames('textSecondary text16', styles.lead)}>
             Enter the 6-digit code we sent to <strong>{codeSentTo}</strong>.
           </p>
           <div className={styles.code}>
@@ -286,10 +282,10 @@ const LoginPage = () => {
               value={code}
             />
           </div>
-          <p className={codeError ? styles.messageError : styles.message} role="status">
+          <p className={classNames(codeError ? 'textErrorDarker' : 'textSecondary', styles.message)} role="status">
             {isSubmittingCode ? 'Checking code' : (codeError ?? (resent ? 'We sent you a new code.' : ''))}
           </p>
-          <div className={styles.row}>
+          <div className={classNames('actionsGroupMdBetween', styles.row)}>
             <Button autoLoading onClick={handleResend} size="md" variant="transparent">
               Resend code
             </Button>
@@ -308,13 +304,15 @@ const LoginPage = () => {
   return renderShell(
     <div className={styles.root}>
       <div className={styles.step}>
-        <h1>
-          Log in or <em>sign up</em>
-        </h1>
-        <p className={styles.lead}>One account for models, templates and compute. No wallet needed to start.</p>
-        <div className={styles.stack}>
+        <AuthHeading emphasis="sign up" title="Log in or" />
+        <p className={classNames('textSecondary text16', styles.lead)}>
+          One account for models, templates and compute. No wallet needed to start.
+        </p>
+        <div className={classNames('flexColumn', styles.stack)}>
           {privyUnavailable ? (
-            <p className={styles.message}>Email, Google and passkey login is unavailable right now.</p>
+            <p className={classNames('textSecondary', styles.message)}>
+              Email, Google and passkey login is unavailable right now.
+            </p>
           ) : (
             <>
               <Button
@@ -330,8 +328,8 @@ const LoginPage = () => {
               >
                 Continue with Google
               </Button>
-              <div className={styles.or}>or</div>
-              <form className={styles.stack} noValidate onSubmit={handleEmailSubmit}>
+              <Divider className={styles.or}>or</Divider>
+              <form className={classNames('flexColumn', styles.formStack)} noValidate onSubmit={handleEmailSubmit}>
                 <Input
                   errorText={emailError}
                   hint={emailError ? undefined : EMAIL_HINT}
@@ -357,7 +355,7 @@ const LoginPage = () => {
                   Continue with email
                 </Button>
               </form>
-              <div className={styles.passkeys}>
+              <div className={classNames('flexRow gapSm justifyContentCenter', styles.passkeys)}>
                 <Button
                   contentBefore={<KeyIcon />}
                   disabled={privyDisabled}
@@ -407,7 +405,7 @@ const LoginPage = () => {
                 Connect a crypto wallet instead
               </Button>
             ))}
-          <p className={styles.fine}>
+          <p className={classNames('textSecondary text12', styles.fine)}>
             Read our <Link href="/privacy-policy">Privacy Policy</Link>.
           </p>
         </div>

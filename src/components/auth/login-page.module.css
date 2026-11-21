@@ -19,28 +19,6 @@
   }
 }
 
-.brand {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-}
-
-.logo {
-  display: block;
-  height: 54px;
-  width: auto;
-}
-
-.beta {
-  background: var(--accent2);
-  border-radius: 16px;
-  color: var(--accent2-contrast);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-  padding: 2px 12px;
-}
-
 .main {
   display: flex;
   flex: 1;
@@ -71,23 +49,9 @@
 .step {
   max-width: 520px;
   width: 100%;
-
-  h1 {
-    font-size: 40px;
-    letter-spacing: -0.01em;
-    line-height: 1.1;
-    text-wrap: balance;
-
-    em {
-      color: var(--accent1);
-      font-style: normal;
-    }
-  }
 }
 
 .lead {
-  color: var(--text-secondary);
-  font-size: 16px;
   margin-top: 12px;
 
   strong {
@@ -97,14 +61,12 @@
 }
 
 .stack {
-  display: flex;
-  flex-direction: column;
   gap: 12px;
   margin-top: 28px;
+}
 
-  .stack {
-    margin-top: 0;
-  }
+.formStack {
+  gap: 12px;
 }
 
 .full {
@@ -112,10 +74,7 @@
 }
 
 .passkeys {
-  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
 }
 
 .inputIcon {
@@ -124,55 +83,28 @@
 }
 
 .or {
-  align-items: center;
   color: var(--text-secondary);
-  display: flex;
   font-size: 12px;
-  gap: 12px;
   letter-spacing: 0.08em;
   margin: 4px 0;
   text-transform: uppercase;
-
-  &::before,
-  &::after {
-    background: var(--border);
-    content: '';
-    flex: 1;
-    height: 1px;
-  }
 }
 
 .code {
   margin-top: 28px;
 }
 
-.message,
-.messageError {
+.message {
   font-size: 14px;
-  margin: 12px 0 0;
+  margin-top: 12px;
   min-height: 20px;
 }
 
-.message {
-  color: var(--text-secondary);
-}
-
-.messageError {
-  color: var(--error-darker);
-}
-
 .row {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: space-between;
   margin-top: 20px;
 }
 
 .fine {
-  color: var(--text-secondary);
-  font-size: 12px;
   margin-top: 4px;
   text-align: center;
 
@@ -183,16 +115,5 @@
 }
 
 .status {
-  align-items: center;
-  color: var(--text-secondary);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
   padding: 64px 0;
-}
-
-@media (max-width: 520px) {
-  .step h1 {
-    font-size: 32px;
-  }
 }

@@ -17,18 +17,6 @@
   margin: 0 auto;
   max-width: 520px;
   width: 100%;
-
-  h1 {
-    font-size: 40px;
-    letter-spacing: -0.01em;
-    line-height: 1.1;
-    text-wrap: balance;
-
-    em {
-      color: var(--accent1);
-      font-style: normal;
-    }
-  }
 }
 
 @keyframes step-in {
@@ -163,9 +151,10 @@
 }
 
 .picks {
+  align-content: flex-start;
   flex-wrap: wrap;
   margin-top: 14px;
-  min-height: 28px;
+  min-height: 60px;
 }
 
 .count {
@@ -216,12 +205,6 @@
   margin: 0 auto;
   max-width: 520px;
   width: 100%;
-}
-
-@media (max-width: 520px) {
-  .step h1 {
-    font-size: 32px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

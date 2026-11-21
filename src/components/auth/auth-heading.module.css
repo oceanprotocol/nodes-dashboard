@@ -1,0 +1,15 @@
+.root {
+  font-size: 40px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  text-wrap: balance;
+
+  em {
+    color: var(--accent1);
+    font-style: normal;
+  }
+
+  @media (max-width: 520px) {
+    font-size: 32px;
+  }
+}

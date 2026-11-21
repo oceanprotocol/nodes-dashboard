@@ -18,6 +18,7 @@ import classNames from 'classnames';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import AuthHeading from './auth-heading';
 import styles from './onboarding-steps.module.css';
 
 type Step = 'profile' | 'goals' | 'source' | 'done';
@@ -26,12 +27,6 @@ const PROGRESS_STEPS = ['profile', 'goals', 'source'] as const;
 const DONE_REDIRECT_MS = 2500;
 
 const { done: DONE, goals: GOALS, profile: PROFILE, source: SOURCE } = ONBOARDING_QUESTIONS;
-
-const Heading = ({ emphasis, title }: { emphasis: string; title: string }) => (
-  <h1>
-    {title} <em>{emphasis}</em>
-  </h1>
-);
 
 const Tick = () => (
   <span aria-hidden className={styles.tick}>
@@ -126,7 +121,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
 
   const renderProfile = () => (
     <div className={styles.step} key="profile">
-      <Heading emphasis={PROFILE.titleEmphasis} title={PROFILE.title} />
+      <AuthHeading emphasis={PROFILE.titleEmphasis} title={PROFILE.title} />
       <p className={classNames('textSecondary text16', styles.lead)}>{PROFILE.lead}</p>
       <div className={styles.grid}>
         {PROFILE.options.map((option) => {
@@ -161,7 +156,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
     const options = GOALS.tabs.find((goalTab) => goalTab.id === tab)?.options ?? [];
     return (
       <div className={styles.step} key="goals">
-        <Heading emphasis={GOALS.titleEmphasis} title={GOALS.title} />
+        <AuthHeading emphasis={GOALS.titleEmphasis} title={GOALS.title} />
         <p className={classNames('textSecondary text16', styles.lead)}>
           {GOALS.lead.replace('{min}', String(GOALS.min)).replace('{max}', String(GOALS.max))}
         </p>
@@ -250,7 +245,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
     const detailLabel = findSource(source)?.detail;
     return (
       <div className={styles.step} key="source">
-        <Heading emphasis={SOURCE.titleEmphasis} title={SOURCE.title} />
+        <AuthHeading emphasis={SOURCE.titleEmphasis} title={SOURCE.title} />
         <p className={classNames('textSecondary text16', styles.lead)}>{SOURCE.lead}</p>
         <div className={classNames('flexRow gapSm', styles.pills)}>
           {SOURCE.options.map((option) => {
@@ -304,7 +299,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
         <div className={styles.doneBadge}>
           <CheckIcon />
         </div>
-        <Heading emphasis={DONE.titleEmphasis} title={DONE.title} />
+        <AuthHeading emphasis={DONE.titleEmphasis} title={DONE.title} />
         <p className={classNames('textSecondary text16', styles.lead)}>{DONE.lead}</p>
         <Card className={styles.offer} paddingX="sm" paddingY="xs" radius="md" variant="accent2">
           {DONE.offer}

@@ -1,0 +1,53 @@
+.root {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  isolation: isolate;
+  position: relative;
+  width: fit-content;
+}
+
+/* Frosted halo so the mark stays legible over busy content. Mostly blur with only a faint tint,
+   so it smooths noise without painting a pale blob over colored sections; an eased radial mask
+   fades it out with no visible edge. Sized off the wrapper, so it tracks the logo size. */
+.halo {
+  backdrop-filter: blur(24px);
+  background: transparent;
+  inset: -30px -90px;
+  mask-image: radial-gradient(
+    closest-side,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 1) 40%,
+    rgba(0, 0, 0, 0.9) 55%,
+    rgba(0, 0, 0, 0.6) 70%,
+    rgba(0, 0, 0, 0.3) 82%,
+    rgba(0, 0, 0, 0.1) 92%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+.logo {
+  display: block;
+  height: 80px;
+  transition: 0.3s ease;
+  width: 65px;
+
+  &.compact {
+    height: 52px;
+  }
+}
+
+/* The mark ships with baked-in #000 fills, so it can't pick up currentColor. It's pure
+   black-and-white art, so inverting it in dark mode produces exactly the intended white logo. */
+:global(:root[data-theme='dark']) .logo {
+  filter: invert(1);
+}
+
+.beta {
+  font-size: 10px;
+}

@@ -15,7 +15,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   const router = useRouter();
-  const showNavigation = router.pathname !== LOGIN_PATH;
+  const isLoginPage = router.pathname === LOGIN_PATH;
 
   return (
     <>
@@ -25,13 +25,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className={styles.main}>
-        {showNavigation && <Navigation />}
+        {!isLoginPage && <Navigation />}
         <OutageBanner />
         {/* App-wide, so a session's expiry warning follows the user off the manage page. */}
         <SessionExpiryNotifier />
         {children}
         <FooterSection />
-        <DocsWidget />
+        {!isLoginPage && <DocsWidget />}
       </div>
     </>
   );
