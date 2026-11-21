@@ -28,7 +28,7 @@ yarn lint        # eslint --ext .ts,.tsx .
 yarn lint:fix
 yarn format      # prettier --write
 yarn db:generate # drizzle-kit: SQL migration from src/db/schema.ts changes
-yarn db:migrate  # apply pending migrations to DATABASE_URL_UNPOOLED (falls back to DATABASE_URL)
+yarn db:migrate  # apply pending migrations to DB_DATABASE_URL_UNPOOLED (falls back to DB_DATABASE_URL)
 yarn db:studio   # browse the database
 ```
 
@@ -47,7 +47,7 @@ yarn db:studio   # browse the database
 
 ## Environment
 
-Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `SUBSIDY_GSHEETS_*`, `SUBSIDY_GMAIL_*`, `SUBSIDY_ACCESS_LIST_*`, `NEXT_PUBLIC_SUBSIDY_PROVIDERS` (comma-separated provider addresses)), `NEXT_PUBLIC_GPU_LIST`, `DATABASE_URL` (Neon pooled) and `DATABASE_URL_UNPOOLED` (direct, for migrations).
+Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `SUBSIDY_GSHEETS_*`, `SUBSIDY_GMAIL_*`, `SUBSIDY_ACCESS_LIST_*`, `NEXT_PUBLIC_SUBSIDY_PROVIDERS` (comma-separated provider addresses)), `NEXT_PUBLIC_GPU_LIST`, `DB_DATABASE_URL` (Neon pooled) and `DB_DATABASE_URL_UNPOOLED` (direct, for migrations).
 
 ## Known gotchas
 

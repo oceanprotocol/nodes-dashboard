@@ -66,7 +66,7 @@ cp .env.example .env.local
 
 ### Set up the database
 
-Point `DATABASE_URL` and `DATABASE_URL_UNPOOLED` at a Neon branch of your own (see [Database](#database)), then create the tables:
+Point `DB_DATABASE_URL` and `DB_DATABASE_URL_UNPOOLED` at a Neon branch of your own (see [Database](#database)), then create the tables:
 
 ```bash
 yarn db:migrate
@@ -130,10 +130,10 @@ Create a `.env.local` file from [`.env.example`](.env.example) (or configure you
 
 ### Database
 
-| Variable                | Description                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL`          | Neon Postgres pooled connection string. Used by API routes (onboarding).                               |
-| `DATABASE_URL_UNPOOLED` | Optional. Neon direct (non-pooled) connection string, used by `yarn db:*`. Defaults to `DATABASE_URL`. |
+| Variable                   | Description                                                                                               |
+| -------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `DB_DATABASE_URL`          | Neon Postgres pooled connection string. Used by API routes (onboarding).                                  |
+| `DB_DATABASE_URL_UNPOOLED` | Optional. Neon direct (non-pooled) connection string, used by `yarn db:*`. Defaults to `DB_DATABASE_URL`. |
 
 ### Fiat On-Ramp
 
@@ -197,7 +197,7 @@ Onboarding answers are stored in [Neon](https://neon.com/) Postgres, provisioned
 
 ### Branches and environments
 
-Each Neon branch is a separate database with its own connection strings. Get them from the Neon Console (**Connect** → pick the branch; pooled for `DATABASE_URL`, unpooled for `DATABASE_URL_UNPOOLED`).
+Each Neon branch is a separate database with its own connection strings. Get them from the Neon Console (**Connect** → pick the branch; pooled for `DB_DATABASE_URL`, unpooled for `DB_DATABASE_URL_UNPOOLED`).
 
 | Branch      | Used by                                         |
 | ----------- | ----------------------------------------------- |

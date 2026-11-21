@@ -3,9 +3,9 @@ import { defineConfig } from 'drizzle-kit';
 
 loadEnvConfig(process.cwd());
 
-const url = process.env.DATABASE_URL_UNPOOLED?.trim() || process.env.DATABASE_URL?.trim();
+const url = process.env.DB_DATABASE_URL_UNPOOLED?.trim() || process.env.DB_DATABASE_URL?.trim();
 if (!url) {
-  throw new Error('DATABASE_URL_UNPOOLED or DATABASE_URL must be set');
+  throw new Error('DB_DATABASE_URL_UNPOOLED or DB_DATABASE_URL must be set');
 }
 
 export default defineConfig({
