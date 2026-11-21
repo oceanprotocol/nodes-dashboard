@@ -40,7 +40,13 @@ const EMAIL_HINT = 'We will send you a 6-digit code. No password to remember.';
 const SIGN_IN_TIMEOUT_MS = 45_000;
 
 const readSafeNext = (next: string | string[] | undefined) => {
-  if (typeof next !== 'string' || !next.startsWith('/') || next.startsWith('//') || next.startsWith(LOGIN_PATH)) {
+  if (
+    typeof next !== 'string' ||
+    next === '/' ||
+    !next.startsWith('/') ||
+    next.startsWith('//') ||
+    next.startsWith(LOGIN_PATH)
+  ) {
     return null;
   }
   return next;
