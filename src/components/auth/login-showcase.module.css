@@ -317,8 +317,7 @@
 }
 
 .paused .current .fill,
-.show:hover .current .fill,
-.show:focus-within .current .fill {
+.show:hover .current .fill {
   animation-play-state: paused;
 }
 

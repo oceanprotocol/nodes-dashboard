@@ -1,6 +1,6 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { getRpc } from '@/lib/constants';
-import { getEmbeddedWallet, isAlchemyMigrationUser } from '@/lib/embedded-wallet';
+import { getEmbeddedWallet, isMigrationPending } from '@/lib/embedded-wallet';
 import { OceanProvider } from '@/lib/ocean-provider';
 import { signMessage } from '@/lib/sign-message';
 import { useAlchemySendTransaction } from '@/lib/use-alchemy-client';
@@ -213,7 +213,7 @@ const EOAHandler = ({
 
   // A migrating user is `authenticated` with no embedded wallet until MigrationProvider
   // imports it (see shouldCreateWallet in alchemy-provider.tsx) — legitimate, not stale.
-  const isMigrating = authenticated && !!privyUser && isAlchemyMigrationUser(privyUser);
+  const isMigrating = authenticated && !!privyUser && isMigrationPending(privyUser);
 
   const hasStaleSession = authenticated && !isMigrating;
 

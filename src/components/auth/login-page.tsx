@@ -3,7 +3,7 @@ import Button from '@/components/button/button';
 import Divider from '@/components/divider/divider.module';
 import Input from '@/components/input/input';
 import TwoFactorInput, { CODE_LENGTH } from '@/components/input/two-factor-input';
-import { isAlchemyMigrationUser, needsEmbeddedWallet } from '@/lib/embedded-wallet';
+import { isMigrationPending, needsEmbeddedWallet } from '@/lib/embedded-wallet';
 import { fetchOnboardingStatus } from '@/lib/onboarding';
 import { LOGIN_PATH, useOceanAccount } from '@/lib/use-ocean-account';
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined';
@@ -19,6 +19,7 @@ import {
   useLoginWithPasskey,
   usePrivy,
   useSignupWithPasskey,
+  useWallets,
   type User,
 } from '@privy-io/react-auth';
 import { useQuery } from '@tanstack/react-query';
@@ -68,7 +69,8 @@ const LoginPage = () => {
   const router = useRouter();
   const { account, loginOptions } = useOceanAccount();
   const { authenticated, logout: privyLogout, ready: privyReady, user: privyUser } = usePrivy();
-  const { hasDismissed: migrationDismissed, isOpen: migrationOpen } = useMigration();
+  const { ready: walletsReady } = useWallets();
+  const { hasCompleted: migrationCompleted, hasDismissed: migrationDismissed, isOpen: migrationOpen } = useMigration();
 
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState<string>();
@@ -88,11 +90,13 @@ const LoginPage = () => {
     gcTime: 0,
     queryFn: () => fetchOnboardingStatus(connectedAddress as string),
     queryKey: ['onboarding', connectedAddress],
+    refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     retry: 1,
   });
-  const needsOnboarding = !!connectedAddress && onboarding.isSuccess && !onboarding.data.onboarded;
-  const onboardingSettled = onboarding.isSuccess || onboarding.isError;
+  // Read from data, not status: a failed refetch keeps the data and must not end onboarding.
+  const needsOnboarding = !!connectedAddress && onboarding.data?.onboarded === false;
+  const onboardingSettled = !!onboarding.data || onboarding.isError;
 
   const fail = useCallback((message: string) => {
     toast.error(message);
@@ -140,7 +144,8 @@ const LoginPage = () => {
   const { loginWithPasskey } = useLoginWithPasskey(callbacks);
   const { signupWithPasskey } = useSignupWithPasskey(callbacks);
 
-  const isMigrating = authenticated && !!privyUser && isAlchemyMigrationUser(privyUser) && !account.isConnected;
+  const isMigrating =
+    authenticated && !!privyUser && !account.isConnected && (isMigrationPending(privyUser) || migrationCompleted);
   useEffect(() => {
     if (isMigrating && migrationDismissed) {
       abortSignInRef.current('Account migration was cancelled. Log in again to continue.');
@@ -318,7 +323,9 @@ const LoginPage = () => {
   }
 
   const privyUnavailable = !!loginOptions?.privyUnavailable;
-  const privyDisabled = !privyReady || !!pending;
+  // A restored session whose wallet is still loading looks stale, and starting a login would end it.
+  const isRestoringSession = authenticated && !walletsReady;
+  const privyDisabled = !privyReady || !!pending || isRestoringSession;
 
   return renderShell(
     <div className={styles.root}>
