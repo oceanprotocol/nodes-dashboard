@@ -1,3 +1,5 @@
+import { createWalletAuthMessage } from '@/types/wallet-auth';
+
 export type SubsidyHandleService = 'discord' | 'telegram' | 'x';
 
 export type SubsidyHandles = Partial<Record<SubsidyHandleService, string>>;
@@ -52,20 +54,7 @@ export type SubsidyVerifyErrorResponse = {
   message: string;
 };
 
-export type SubsidyAuth = {
-  expiryTimestamp: number;
-  signature: string;
-};
-
-export const SUBSIDY_AUTH_ERROR = 'invalid-signature';
-export const SUBSIDY_AUTH_TTL_MS = 30 * 60 * 1000;
-
-export const getSubsidyAuthMessage = (walletAddress: string, expiryTimestamp: number) =>
-  [
-    'Ocean Network subsidy',
-    `Wallet: ${walletAddress.toLowerCase()}`,
-    `Expires: ${new Date(expiryTimestamp).toISOString()}`,
-  ].join('\n');
+export const getSubsidyAuthMessage = createWalletAuthMessage('Ocean Network subsidy');
 
 export const SUBSIDY_BOT_BLOCKED_ERROR = 'bot-blocked';
 export const SUBSIDY_MAX_OTP_ATTEMPTS = 5;

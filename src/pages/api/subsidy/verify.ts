@@ -2,9 +2,10 @@ import { blockBots } from '@/api-services/bot-check';
 import { findSubsidyByWallet, loadSubsidies, updateSubsidyInSheet } from '@/api-services/gsheets';
 import { verifyOTP } from '@/api-services/otp';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
-import { requireWalletSignature } from '@/api-services/subsidy-auth';
 import { subsidyVerifyBodySchema } from '@/api-services/subsidy-schemas';
+import { requireWalletSignature } from '@/api-services/wallet-auth';
 import {
+  getSubsidyAuthMessage,
   SUBSIDY_MAX_OTP_ATTEMPTS,
   SubsidyStatus,
   SubsidyVerifyError,
@@ -33,7 +34,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return;
   }
 
-  if (!(await requireWalletSignature(response, walletAddress, body))) {
+  if (!(await requireWalletSignature(response, walletAddress, body, getSubsidyAuthMessage))) {
     return;
   }
 

@@ -1,4 +1,5 @@
 import { getCommonNavNode, isNavNodeId, NAV_TREE, NavNodeId } from '@/lib/navigation-tree';
+import { createWalletAuthMessage, WalletAuth } from '@/types/wallet-auth';
 import questions from './onboarding-questions.json';
 
 export type Lane = 'maker' | 'builder';
@@ -63,6 +64,8 @@ export type OnboardingStatus = {
 export const ONBOARDING_API_PATH = '/api/onboarding';
 export const SOURCE_DETAIL_MAX_LENGTH = 200;
 
+export const getOnboardingAuthMessage = createWalletAuthMessage('Ocean Network onboarding');
+
 export const ONBOARDING_QUESTIONS = questions as OnboardingQuestions;
 
 export const ALL_GOALS = ONBOARDING_QUESTIONS.goals.tabs.flatMap((tab) => tab.options);
@@ -78,10 +81,20 @@ export const getOnboardingDestination = (goals: string[]) => {
 
 const REQUEST_TIMEOUT_MS = 8000;
 
+export class OnboardingRequestError extends Error {
+  body: unknown;
+
+  constructor(status: number, body: unknown) {
+    super(`Onboarding request failed with ${status}`);
+    this.name = 'OnboardingRequestError';
+    this.body = body;
+  }
+}
+
 const requestStatus = async (input: string, init?: RequestInit): Promise<OnboardingStatus> => {
   const response = await fetch(input, { ...init, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!response.ok) {
-    throw new Error(`Onboarding request failed with ${response.status}`);
+    throw new OnboardingRequestError(response.status, await response.json().catch(() => null));
   }
   return response.json();
 };
@@ -89,9 +102,13 @@ const requestStatus = async (input: string, init?: RequestInit): Promise<Onboard
 export const fetchOnboardingStatus = (address: string) =>
   requestStatus(`${ONBOARDING_API_PATH}?address=${encodeURIComponent(address)}`);
 
-export const submitOnboardingAnswers = (address: string, answers: OnboardingAnswers) =>
+export const submitOnboardingAnswers = (
+  address: string,
+  answers: OnboardingAnswers,
+  { expiryTimestamp, signature }: WalletAuth
+) =>
   requestStatus(ONBOARDING_API_PATH, {
-    body: JSON.stringify({ ...answers, address }),
+    body: JSON.stringify({ ...answers, address, expiryTimestamp, signature }),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
   });

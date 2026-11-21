@@ -11,8 +11,9 @@ import {
   Lane,
   ONBOARDING_QUESTIONS,
   SOURCE_DETAIL_MAX_LENGTH,
-  submitOnboardingAnswers,
 } from '@/lib/onboarding';
+import { useOnboardingSubmit } from '@/lib/use-onboarding-submit';
+import { WalletAuthError } from '@/lib/wallet-auth';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import classNames from 'classnames';
@@ -44,6 +45,7 @@ type OnboardingStepsProps = {
 
 const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: OnboardingStepsProps) => {
   const router = useRouter();
+  const submitAnswers = useOnboardingSubmit(address);
 
   const [goals, setGoals] = useState<string[]>([]);
   const [profile, setProfile] = useState<string | null>(null);
@@ -105,7 +107,7 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
     }
     setSubmitting(true);
     try {
-      const status = await submitOnboardingAnswers(address, {
+      const status = await submitAnswers({
         goals,
         profile,
         source: skip ? null : source,
@@ -115,7 +117,11 @@ const OnboardingSteps = ({ address, nextPath, onFocusSlide, onLeadSlide }: Onboa
       setStep('done');
     } catch (cause) {
       console.error('Saving onboarding answers failed:', cause);
-      toast.error('Could not save your answers. Try again, or continue without saving.');
+      toast.error(
+        cause instanceof WalletAuthError
+          ? 'Sign the message in your wallet to save your answers, or continue without saving.'
+          : 'Could not save your answers. Try again, or continue without saving.'
+      );
       setSaveFailed(true);
     } finally {
       setSubmitting(false);

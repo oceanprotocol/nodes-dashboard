@@ -1,7 +1,8 @@
 import { allowMethod, isWalletAddress } from '@/api-services/request';
+import { requireWalletSignature } from '@/api-services/wallet-auth';
 import { getDb } from '@/db';
 import { onboardingAnswers } from '@/db/schema';
-import { getOnboardingDestination, OnboardingStatus, parseAnswers } from '@/lib/onboarding';
+import { getOnboardingAuthMessage, getOnboardingDestination, OnboardingStatus, parseAnswers } from '@/lib/onboarding';
 import { eq } from 'drizzle-orm';
 import { ethers } from 'ethers';
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -46,7 +47,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!answers) {
       return res.status(400).json({ message: 'Invalid answers' });
     }
-    // First write wins: the caller's ownership of the address is not verified.
+    if (!(await requireWalletSignature(res, address, req.body, getOnboardingAuthMessage))) {
+      return;
+    }
     const [inserted] = await getDb()
       .insert(onboardingAnswers)
       .values({ ...answers, address })
