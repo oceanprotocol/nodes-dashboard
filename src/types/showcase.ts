@@ -24,6 +24,8 @@ export type ShowcaseEntry = {
   height: number;
   alt: string;
   source: ShowcaseSource;
+  /** Has a soundtrack worth hearing: never autoplays, and plays with sound from a Listen button. */
+  audio?: boolean;
   /** Prompt used for the generation. */
   prompt?: string;
 };

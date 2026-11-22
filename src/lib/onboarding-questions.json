@@ -107,7 +107,7 @@
           {
             "id": "video",
             "destination": "inferenceTemplates",
-            "slide": "ugc",
+            "slide": "video",
             "title": "Video Generator",
             "subtitle": "Text, a photo or references in. Video with audio out."
           },

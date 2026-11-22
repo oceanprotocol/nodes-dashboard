@@ -91,7 +91,7 @@
   top: 56px;
   z-index: 1;
 
-  svg {
+  > svg {
     font-family: var(--font-inter), sans-serif;
     height: 100%;
     max-width: 620px;
@@ -102,7 +102,104 @@
   }
 }
 
-.active .art svg {
+.mediaArt {
+  --radius: 22px;
+
+  align-items: center;
+  aspect-ratio: 520 / 380;
+  display: flex;
+  gap: 12px;
+  max-height: 100%;
+  max-width: min(620px, 100%);
+  transform: translateY(14px) scale(0.97);
+  transition: transform 1s ease 0.1s;
+  width: 100%;
+
+  .clip {
+    aspect-ratio: auto;
+    box-shadow: 0 8px 32px -12px #00000060;
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+  }
+}
+
+.outputs {
+  display: grid;
+  flex: 1;
+  gap: 12px;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 5fr 3fr;
+  height: 100%;
+  min-width: 0;
+
+  .clip:first-child {
+    grid-column: span 2;
+  }
+
+  .clip:only-child {
+    grid-row: span 2;
+  }
+}
+
+.withInput {
+  --radius: 16px;
+
+  aspect-ratio: 3 / 2;
+
+  .outputs {
+    aspect-ratio: 2 / 3;
+    flex: 0 1 auto;
+    grid-template-rows: 1fr 1fr;
+
+    .clip:first-child {
+      grid-column: auto;
+    }
+  }
+}
+
+.reels {
+  aspect-ratio: 7 / 12;
+  height: 100%;
+  width: auto;
+
+  .outputs {
+    grid-template-rows: 1fr 1fr;
+
+    .clip:first-child {
+      grid-column: auto;
+    }
+  }
+}
+
+.input {
+  aspect-ratio: 2 / 3;
+  flex: 0 1 auto;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+}
+
+.inputLabel {
+  backdrop-filter: var(--backdrop-filter-glass);
+  background: var(--showcase-glass);
+  border-radius: 100px;
+  bottom: 10px;
+  box-shadow: var(--showcase-glass-shadow);
+  font-size: 12px;
+  font-weight: 600;
+  left: 10px;
+  padding: 4px 10px;
+  position: absolute;
+}
+
+.arrow {
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.active .art > svg,
+.active .mediaArt {
   transform: none;
 }
 
@@ -338,7 +435,8 @@
   .slide,
   .active,
   .caption > *,
-  .art svg {
+  .art > svg,
+  .mediaArt {
     transform: none;
     transition: none;
   }
