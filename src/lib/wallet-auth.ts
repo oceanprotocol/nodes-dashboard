@@ -5,7 +5,7 @@ import { WALLET_AUTH_TTL_MS, WalletAuth, WalletAuthMessageBuilder } from '@/type
 const EXPIRY_MARGIN_MS = 60 * 1000;
 const CLOCK_RESYNC_THRESHOLD_MS = 60 * 1000;
 
-type CachedAuth = WalletAuth & { address: string };
+type CachedAuth = WalletAuth & { address: string; clockOffsetMs: number };
 type PendingAuth = { address: string; promise: Promise<CachedAuth> };
 type AuthRejection = { serverTime?: unknown };
 
@@ -35,10 +35,11 @@ export const createWalletAuthSession = (getMessage: WalletAuthMessageBuilder) =>
     !!auth && isSameAddress(auth.address, address) && auth.expiryTimestamp - EXPIRY_MARGIN_MS > serverNow();
 
   const sign = async (address: string, signMessage: SignMessageFn): Promise<CachedAuth> => {
-    const expiryTimestamp = serverNow() + WALLET_AUTH_TTL_MS;
+    const signedOffsetMs = clockOffsetMs;
+    const expiryTimestamp = Date.now() + signedOffsetMs + WALLET_AUTH_TTL_MS;
     try {
       const signature = await signMessage(getMessage(address, expiryTimestamp));
-      return { address, expiryTimestamp, signature };
+      return { address, clockOffsetMs: signedOffsetMs, expiryTimestamp, signature };
     } catch (error) {
       if (classifyError(error) === 'user_rejected') {
         throw new WalletAuthError('Sign the message in your wallet to continue.', 'ACTION_REJECTED');
@@ -87,7 +88,7 @@ export const createWalletAuthSession = (getMessage: WalletAuthMessageBuilder) =>
     const attempt = async (isRetry: boolean): Promise<T> => {
       const auth = await getAuth(address, signMessage);
       try {
-        return await send(auth);
+        return await send({ expiryTimestamp: auth.expiryTimestamp, signature: auth.signature });
       } catch (error) {
         const rejection = getRejection(error);
         if (!rejection) {
@@ -96,8 +97,9 @@ export const createWalletAuthSession = (getMessage: WalletAuthMessageBuilder) =>
         if (cached === auth) {
           cached = null;
         }
-        const offset = typeof rejection.serverTime === 'number' ? rejection.serverTime - Date.now() : clockOffsetMs;
-        if (isRetry || Math.abs(offset - clockOffsetMs) < CLOCK_RESYNC_THRESHOLD_MS) {
+        const offset =
+          typeof rejection.serverTime === 'number' ? rejection.serverTime - Date.now() : auth.clockOffsetMs;
+        if (isRetry || Math.abs(offset - auth.clockOffsetMs) < CLOCK_RESYNC_THRESHOLD_MS) {
           throw error;
         }
         clockOffsetMs = offset;
