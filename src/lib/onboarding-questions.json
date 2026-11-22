@@ -135,7 +135,7 @@
         "options": [
           {
             "id": "endpoint",
-            "destination": "inferenceDefaultModels",
+            "destination": "inference",
             "slide": "builder",
             "title": "OpenAI-compatible endpoint",
             "subtitle": "Pin a curated open model, like Qwen3.8-27B, on a dedicated GPU.",
@@ -166,7 +166,7 @@
           },
           {
             "id": "notebook",
-            "destination": "runJob",
+            "destination": "inferenceServices",
             "slide": "builder",
             "title": "Notebook or benchmark",
             "subtitle": "JupyterLab for experiments and evals.",
