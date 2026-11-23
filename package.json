@@ -47,7 +47,7 @@
     "express": "^4.22.1",
     "formik": "^2.4.9",
     "google-auth-library": "^10.5.0",
-    "googleapis": "^171.3.0",
+    "googleapis": "^190.0.0",
     "gsap": "3.15.0",
     "it-pipe": "^3.0.1",
     "jparticles": "^3.5.0",
