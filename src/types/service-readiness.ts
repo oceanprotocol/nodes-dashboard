@@ -111,7 +111,17 @@ export function getModelDownload(job: unknown): ServiceModelDownload | null {
   if (typeof d.downloadedBytes !== 'number' || typeof d.filesComplete !== 'number') {
     return null;
   }
-  return download as ServiceModelDownload;
+  // A stored copy of the record carries null for the keys the node omits.
+  return {
+    ...d,
+    totalBytes: numberOrUndefined(d.totalBytes),
+    percent: numberOrUndefined(d.percent),
+    filesTotal: numberOrUndefined(d.filesTotal),
+  } as ServiceModelDownload;
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
 }
 
 /** A download listed up front (a template's manifest) is done when every entry is. */
