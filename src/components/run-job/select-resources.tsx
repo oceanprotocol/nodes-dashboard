@@ -927,7 +927,7 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
 
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
-          defaultUnit={selectedMaxJobDurationSeconds ? 'seconds' : 'hours'}
+          defaultUnit={selectedMaxJobDurationSeconds ? 'minutes' : 'hours'}
           errorText={
             formik.touched.maxJobDurationSeconds && formik.errors.maxJobDurationSeconds
               ? formik.errors.maxJobDurationSeconds

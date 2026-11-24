@@ -3,7 +3,7 @@
 import Button from '@/components/button/button';
 import DurationInput from '@/components/input/duration-input';
 import Modal from '@/components/modal/modal';
-import { SESSION_DURATION_UNIT_OPTIONS } from '@/utils/duration';
+import { DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import { formatDuration } from '@/utils/formatters';
 import { useEffect, useRef, useState } from 'react';
 
@@ -110,7 +110,7 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
       <div className="flexColumn gapMd">
         <div className="textSecondary">Choose how much extra runtime to add</div>
         <DurationInput
-          availableUnits={SESSION_DURATION_UNIT_OPTIONS}
+          availableUnits={DURATION_UNIT_OPTIONS}
           defaultUnit="minutes"
           disabled={noHeadroom}
           errorText={error ?? undefined}

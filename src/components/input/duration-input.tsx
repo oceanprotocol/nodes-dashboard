@@ -61,7 +61,7 @@ const DurationInput: React.FC<DurationInputProps> = ({
   ariaLabel,
   availableUnits,
   className,
-  defaultUnit = 'seconds',
+  defaultUnit = 'minutes',
   disabled,
   emptyWhenZero,
   errorText,

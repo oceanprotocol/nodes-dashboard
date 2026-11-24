@@ -3,19 +3,16 @@ import duration from 'dayjs/plugin/duration';
 
 dayjs.extend(duration);
 
-export type DurationUnit = 'seconds' | 'minutes' | 'hours';
+/**
+ * Units offered by duration pickers. No seconds: the shortest job or session is 10 minutes, so a
+ * seconds value is never useful there.
+ */
+export type DurationUnit = 'minutes' | 'hours';
 
 export const DURATION_UNIT_OPTIONS: { label: string; value: DurationUnit }[] = [
-  { label: 'sec', value: 'seconds' },
   { label: 'min', value: 'minutes' },
   { label: 'hrs', value: 'hours' },
 ];
-
-/**
- * Units for inference session lengths. No seconds: the shortest session is 10 minutes, so a
- * seconds value is never valid there.
- */
-export const SESSION_DURATION_UNIT_OPTIONS = DURATION_UNIT_OPTIONS.filter((opt) => opt.value !== 'seconds');
 
 export function toSeconds(value: number, unit: DurationUnit): number {
   return dayjs.duration(value, unit).asSeconds();
