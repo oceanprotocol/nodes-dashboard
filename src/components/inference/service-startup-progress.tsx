@@ -2,6 +2,7 @@ import {
   getImagePullProgress,
   getModelDownload,
   getServiceReadiness,
+  isModelDownloading,
   ServiceModelDownload,
 } from '@/types/service-readiness';
 import { formatBytes } from '@/utils/formatters';
@@ -13,6 +14,8 @@ const STARTING_LABELS: Record<string, string> = {
   comfyui: 'Starting ComfyUI',
 };
 
+const UNVERIFIED_LABEL = 'The node can’t confirm the model has loaded';
+
 /**
  * What the service is doing right now, in one line — for the page header, beside the status chip.
  *
@@ -21,9 +24,9 @@ const STARTING_LABELS: Record<string, string> = {
  * otherwise the label carries it alone, because a bar with no scale invites the reader to guess at
  * a position that means nothing.
  *
- * Returns null once the engine answers. A service the node cannot probe has no readiness, only its
- * launch script's download report: that shows while it runs, and the line goes away once it
- * completes, since nothing then says when the app itself is up.
+ * Returns null once the service answers. A service the node cannot probe has no readiness, only
+ * its launch script's download report: that shows while it runs, and after it the line says that
+ * nothing can confirm the model has loaded, rather than going quiet beside a live-looking status.
  */
 export function useStartupSummary(job: ServiceJob | null): StartupSummary | null {
   const readiness = getServiceReadiness(job);
@@ -35,7 +38,13 @@ export function useStartupSummary(job: ServiceJob | null): StartupSummary | null
   const isRunning = job.status === ServiceStatusNumber.Running;
 
   if (!readiness) {
-    return isRunning && model && isDownloading(model) ? downloadSummary(model) : null;
+    if (!isRunning) {
+      return null;
+    }
+    return model && isModelDownloading(model) ? downloadSummary(model) : { label: UNVERIFIED_LABEL, percent: null };
+  }
+  if (readiness.state === 'failing') {
+    return null;
   }
   if (!isRunning) {
     // Still getting the image onto the host. Docker's byte counts are exact, so this always has a
@@ -45,19 +54,19 @@ export function useStartupSummary(job: ServiceJob | null): StartupSummary | null
     }
     return { label: 'Downloading image', percent: pull.percent };
   }
-  if (model && isDownloading(model)) {
+  if (model && isModelDownloading(model)) {
     return downloadSummary(model);
   }
-  // Weights are in; the engine is starting up. Nothing reports progress for this.
-  return { label: STARTING_LABELS[readiness.engine ?? ''] ?? 'Starting engine', percent: null };
+  // A generically probed service that never reported a download may not be serving a model at
+  // all: the chip's own "Starting" is all there is to say.
+  if (readiness.engine === 'generic' && !model) {
+    return null;
+  }
+  // Weights are in; the engine is loading them. Nothing reports progress for this.
+  return { label: STARTING_LABELS[readiness.engine ?? ''] ?? 'Loading model', percent: null };
 }
 
 type StartupSummary = { label: string; percent: number | null };
-
-/** A download listed up front (a template's manifest) is done when every entry is. */
-function isDownloading(model: ServiceModelDownload): boolean {
-  return model.filesTotal !== undefined ? model.filesComplete < model.filesTotal : model.percent !== 100;
-}
 
 function downloadSummary(model: ServiceModelDownload): StartupSummary {
   const label =

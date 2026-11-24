@@ -24,6 +24,11 @@
   color: var(--warning-darker);
 }
 
+/* Container up, but the node cannot say whether the workload answers. */
+.status_unverified {
+  color: var(--warning-darker);
+}
+
 .status_pending {
   color: var(--text-secondary);
 }

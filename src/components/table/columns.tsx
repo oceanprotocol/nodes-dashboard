@@ -11,8 +11,8 @@ import { modelIdFromCommand } from '@/services/inference-launch';
 import { isModelAppType, readServiceMetadata } from '@/services/service-metadata';
 import { STATUS_FILTER_OPTIONS } from '@/services/service-status';
 import { BenchmarkJobHistory, ComputeJob, NodeJobHistory, NodeServiceHistory } from '@/types/jobs';
-import { getServiceReadiness } from '@/types/service-readiness';
 import { GPUPopularity, Node } from '@/types/nodes';
+import { getServiceStartup } from '@/types/service-readiness';
 import { UnbanRequest } from '@/types/unban-requests';
 import { calculateTotalBenchmarkScore } from '@/utils/benchmark-score';
 import {
@@ -806,11 +806,11 @@ export const existingServicesColumns: GridColDef<
       flex: 1,
       headerName: 'Status',
       sortable: false,
-      // `readiness` rides on the job record as an extra key the node adds (see
+      // The startup report rides on the job record as extra keys the node adds (see
       // types/service-readiness): Running means the container is up, ready means the workload
-      // inside it actually answers. Read defensively, so a node that reports none renders as before.
+      // inside it actually answers.
       renderCell: ({ row }) => (
-        <ServiceStatusChip readiness={getServiceReadiness(row)} status={row.status} statusText={row.statusText} />
+        <ServiceStatusChip startup={getServiceStartup(row)} status={row.status} statusText={row.statusText} />
       ),
     },
     {
@@ -960,7 +960,12 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     valueGetter: (_value, row) => (row.tag ? `${row.image}:${row.tag}` : row.image),
     renderCell: ({ row, value }) => (
       <span className="flexRow alignItemsCenter gapXs">
-        <ServiceStatusChip compact status={row.status} statusText={row.statusText} />
+        <ServiceStatusChip
+          compact
+          startup={getServiceStartup(row)}
+          status={row.status}
+          statusText={row.statusText}
+        />
         <span title={value}>{value || '-'}</span>
       </span>
     ),
@@ -1033,11 +1038,11 @@ export const nodeServicesColumns: GridColDef<ServiceJobListed>[] = [
     flex: 1,
     headerName: 'Status',
     sortable: false,
-    // `readiness` rides on the job record as an extra key the node adds (see
+    // The startup report rides on the job record as extra keys the node adds (see
     // types/service-readiness): Running means the container is up, ready means the workload
-    // inside it actually answers. Read defensively, so a node that reports none renders as before.
+    // inside it actually answers.
     renderCell: ({ row }) => (
-      <ServiceStatusChip readiness={getServiceReadiness(row)} status={row.status} statusText={row.statusText} />
+      <ServiceStatusChip startup={getServiceStartup(row)} status={row.status} statusText={row.statusText} />
     ),
   },
   {
@@ -1240,7 +1245,8 @@ export const nodeJobsHistoryColumns: GridColDef<NodeJobHistory>[] = [
 ];
 
 // Every service a node has run, across all owners (incentive-backend history, admin only). Same cells
-// as the running-services table, minus the live-only readiness. Dates here are epoch ms.
+// as the running-services table; the startup report is the backend's last synced copy. Dates here
+// are epoch ms.
 export const nodeServicesHistoryColumns: GridColDef<NodeServiceHistory>[] = [
   {
     field: 'status',
@@ -1252,7 +1258,9 @@ export const nodeServicesHistoryColumns: GridColDef<NodeServiceHistory>[] = [
     sortable: false,
     type: 'singleSelect',
     valueOptions: STATUS_FILTER_OPTIONS,
-    renderCell: ({ row }) => <ServiceStatusChip status={row.status} statusText={row.statusText} />,
+    renderCell: ({ row }) => (
+      <ServiceStatusChip startup={getServiceStartup(row)} status={row.status} statusText={row.statusText} />
+    ),
   },
   {
     field: 'image',
