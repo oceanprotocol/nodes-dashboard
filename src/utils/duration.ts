@@ -11,6 +11,12 @@ export const DURATION_UNIT_OPTIONS: { label: string; value: DurationUnit }[] = [
   { label: 'hrs', value: 'hours' },
 ];
 
+/**
+ * Units for inference session lengths. No seconds: the shortest session is 10 minutes, so a
+ * seconds value is never valid there.
+ */
+export const SESSION_DURATION_UNIT_OPTIONS = DURATION_UNIT_OPTIONS.filter((opt) => opt.value !== 'seconds');
+
 export function toSeconds(value: number, unit: DurationUnit): number {
   return dayjs.duration(value, unit).asSeconds();
 }

@@ -30,7 +30,7 @@ import {
 } from '@/services/vram-estimate';
 import { ComputeEnvironment, ComputeResource, NodeEnvironments } from '@/types/environments';
 import { InferenceFlowType } from '@/types/inference';
-import { DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
+import { formatSessionEnd, SESSION_DURATION_UNIT_OPTIONS } from '@/utils/duration';
 import {
   demandOf,
   GpuDemand,
@@ -637,9 +637,9 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                 </span>
                 <DurationInput
                   ariaLabel="Custom session length"
-                  availableUnits={DURATION_UNIT_OPTIONS}
+                  availableUnits={SESSION_DURATION_UNIT_OPTIONS}
                   className={styles.sessionDuration}
-                  defaultUnit="hours"
+                  defaultUnit="minutes"
                   emptyWhenZero
                   invalid={showDurationError}
                   min={1}

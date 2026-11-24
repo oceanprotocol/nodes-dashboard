@@ -6,7 +6,7 @@ import { QuickStart } from '@/components/hooks/use-quick-start';
 import DurationInput from '@/components/input/duration-input';
 import SubsidizedNodeChip from '@/components/subsidy/subsidized-node-chip';
 import { QuickStartEntry } from '@/services/quick-start';
-import { DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
+import { SESSION_DURATION_UNIT_OPTIONS, formatSessionEnd } from '@/utils/duration';
 import { formatDuration, formatGb } from '@/utils/formatters';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import DnsIcon from '@mui/icons-material/Dns';
@@ -258,9 +258,9 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
         </div>
         <div className={styles.controls}>
           <DurationInput
-            availableUnits={DURATION_UNIT_OPTIONS}
+            availableUnits={SESSION_DURATION_UNIT_OPTIONS}
             className={styles.duration}
-            defaultUnit="hours"
+            defaultUnit="minutes"
             emptyWhenZero
             label="Session length"
             min={1}
