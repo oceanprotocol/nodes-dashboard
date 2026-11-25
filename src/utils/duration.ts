@@ -3,10 +3,17 @@ import duration from 'dayjs/plugin/duration';
 
 dayjs.extend(duration);
 
-export type DurationUnit = 'seconds' | 'minutes' | 'hours';
+/**
+ * Units offered by duration pickers. No seconds, by product decision: jobs and sessions on our nodes
+ * have a 10-minute minimum, so a seconds unit only led to validation errors.
+ *
+ * The actual floor still comes from each environment's `minJobDuration` / `minServiceDuration`, not
+ * from here; other nodes may set lower ones (the node's default `minJobDuration` is 60 s). Node config
+ * rounds to whole seconds, so a sub-minute value can still be entered there as a fraction of a minute.
+ */
+export type DurationUnit = 'minutes' | 'hours';
 
 export const DURATION_UNIT_OPTIONS: { label: string; value: DurationUnit }[] = [
-  { label: 'sec', value: 'seconds' },
   { label: 'min', value: 'minutes' },
   { label: 'hrs', value: 'hours' },
 ];

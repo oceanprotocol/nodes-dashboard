@@ -639,7 +639,7 @@ const SelectInferenceEnvironment: React.FC<SelectInferenceEnvironmentProps> = ({
                   ariaLabel="Custom session length"
                   availableUnits={DURATION_UNIT_OPTIONS}
                   className={styles.sessionDuration}
-                  defaultUnit="hours"
+                  defaultUnit="minutes"
                   emptyWhenZero
                   invalid={showDurationError}
                   min={1}

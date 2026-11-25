@@ -284,6 +284,10 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
         return;
       }
       setEstimatedTotalCost(estimatedTotalCost ? roundTokenAmount(estimatedTotalCost, USDC.address, 'up') : 0);
+      // Whole seconds, by the same rule as the cost estimate: the picker works in min/hrs, so a retyped
+      // fractional minute (61 s shows as 1.0167 min) would otherwise submit 61.002 s.
+      const submittedJobDurationSeconds =
+        values.maxJobDurationSeconds < 1 ? 1 : Math.ceil(values.maxJobDurationSeconds);
       setSelectedResources({
         cpuCores: effectiveCpu,
         cpuId: cpu?.id ?? 'cpu',
@@ -291,7 +295,7 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
         diskId: disk?.id ?? 'disk',
         gpus: selectedGpuEntries,
         gpuCount: selectedGpuEntries.length,
-        maxJobDurationSeconds: values.maxJobDurationSeconds,
+        maxJobDurationSeconds: submittedJobDurationSeconds,
         ram: effectiveRam,
         ramId: ram?.id ?? 'ram',
       });
@@ -300,7 +304,7 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
         ram: effectiveRam,
         diskSpace: effectiveDisk,
         gpuCount: selectedGpuEntries.length,
-        maxJobDurationSeconds: values.maxJobDurationSeconds,
+        maxJobDurationSeconds: submittedJobDurationSeconds,
         mode: values.mode,
         estimatedTotalCost,
         freeCompute,
@@ -314,7 +318,7 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
           gpus: values.gpus.map((id) => `${id}:1`),
           gpuCount: values.gpus.length,
         }),
-        maxJobDuration: values.maxJobDurationSeconds,
+        maxJobDuration: submittedJobDurationSeconds,
       };
 
       if (estimatedTotalCost! > 0 && !freeCompute) {
@@ -927,7 +931,7 @@ const SelectResources = ({ environment, freeCompute }: SelectResourcesProps) => 
 
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
-          defaultUnit={selectedMaxJobDurationSeconds ? 'seconds' : 'hours'}
+          defaultUnit={selectedMaxJobDurationSeconds ? 'minutes' : 'hours'}
           errorText={
             formik.touched.maxJobDurationSeconds && formik.errors.maxJobDurationSeconds
               ? formik.errors.maxJobDurationSeconds

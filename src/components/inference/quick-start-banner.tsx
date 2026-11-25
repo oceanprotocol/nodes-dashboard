@@ -260,7 +260,7 @@ export default function QuickStartBanner<T extends QuickStartEntry>({
           <DurationInput
             availableUnits={DURATION_UNIT_OPTIONS}
             className={styles.duration}
-            defaultUnit="hours"
+            defaultUnit="minutes"
             emptyWhenZero
             label="Session length"
             min={1}
