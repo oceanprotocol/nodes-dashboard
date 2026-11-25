@@ -14,7 +14,7 @@ const STARTING_LABELS: Record<string, string> = {
   comfyui: 'Starting ComfyUI',
 };
 
-const UNVERIFIED_LABEL = 'The node can’t confirm the model has loaded';
+const UNVERIFIED_LABEL = 'The model may still be loading';
 
 /**
  * What the service is doing right now, in one line — for the page header, beside the status chip.
