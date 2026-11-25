@@ -279,13 +279,18 @@ export function templatePrimaryPort(template: AppTemplate): number | undefined {
 /** The per-launch switch for a ComfyUI template's MCP endpoint (see templateMcpEnabled). */
 export const MCP_ENABLE_ENV_KEY = 'OCEAN_MCP_ENABLE';
 
+/** The plain ComfyUI service template, parent of the ComfyUI bundles. */
+const COMFYUI_SERVICE_ID = 'comfyui';
+
 /**
- * The port serving the template's MCP endpoint: a ComfyUI bundle's second exposed port, where the
- * shared comfy-mcp include listens (the include requires that slot). Undefined for everything else —
- * other apps' second port is something else entirely (landing-studio's preview server).
+ * The port serving the template's MCP endpoint: the second exposed port of a ComfyUI bundle or of the
+ * plain ComfyUI service, where the shared comfy-mcp include listens (the include requires that slot).
+ * An older ComfyUI service with one port has none. Undefined for everything else — other apps' second
+ * port is something else entirely (landing-studio's preview server).
  */
 export function templateMcpPort(template: AppTemplate): number | undefined {
-  return template.service === 'comfyui' ? template.exposedPorts?.[1] : undefined;
+  const comfy = template.service === COMFYUI_SERVICE_ID || template.id === COMFYUI_SERVICE_ID;
+  return comfy ? template.exposedPorts?.[1] : undefined;
 }
 
 /**
