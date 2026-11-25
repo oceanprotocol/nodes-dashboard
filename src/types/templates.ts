@@ -76,6 +76,8 @@ type BundleFields = {
   unlisted?: boolean;
   /** Catalogue position, lowest first. Entries without one follow, in the node's order. */
   order?: number;
+  /** HTTP ports to request over HTTPS on a node with `features.secureTls`; absent means none. */
+  secureTls?: number[];
 };
 
 /** One user-supplied env var, plus the node's `required` hint (also missing from the ocean.js type). */

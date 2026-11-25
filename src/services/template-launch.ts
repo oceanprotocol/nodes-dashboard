@@ -8,6 +8,7 @@ import {
   buildGpuRequests,
   resourceId,
 } from '@/services/inference-launch';
+import { withSecureTls } from '@/services/secure-tls';
 import { buildServiceMetadata, resolveServiceAppType } from '@/services/service-metadata';
 import { InferenceFlowType } from '@/types/inference';
 import { AppTemplate, TemplateWorkflow } from '@/types/templates';
@@ -151,6 +152,7 @@ export async function buildTemplateStartParams({
   envValues,
   bucketId,
   gpuPlan,
+  secureTls,
 }: {
   template: AppTemplate;
   selectedEnv: SelectedInferenceEnv;
@@ -166,6 +168,7 @@ export async function buildTemplateStartParams({
   envValues: Record<string, string>;
   /** Optional result bucket id to mount at /data/outputs — picked on the config step. */
   bucketId?: string;
+  secureTls: boolean;
 }): Promise<ServiceStartParams> {
   const envResources = selectedEnv.environment.resources ?? [];
 
@@ -195,7 +198,7 @@ export async function buildTemplateStartParams({
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
   const metadata = templateMetadata(template, envValues);
 
-  return {
+  const spec = {
     environment: selectedEnv.environment.id,
     image: template.image,
     ...imageRef,
@@ -209,6 +212,7 @@ export async function buildTemplateStartParams({
     payment: { chainId: CHAIN_ID, token: USDC.address },
     ...(bucketId ? { outputBucketId: bucketId } : {}),
   };
+  return withSecureTls(spec, template.secureTls ?? [], secureTls);
 }
 
 /**
@@ -222,7 +226,8 @@ export async function buildTemplateStartParams({
  */
 export async function buildTemplateRestartParams(
   template: AppTemplate,
-  envValues: Record<string, string>
+  envValues: Record<string, string>,
+  secureTls: boolean
 ): Promise<ServiceRestartParams> {
   // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
   const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
@@ -230,7 +235,7 @@ export async function buildTemplateRestartParams(
   // Re-stamped, not reused: an Edit can relaunch onto a DIFFERENT template, and an omitted `metadata`
   // would leave the service labelled with the app it used to run.
   const metadata = templateMetadata(template, envValues);
-  return {
+  const spec = {
     image: template.image,
     ...imageRef,
     ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
@@ -238,6 +243,7 @@ export async function buildTemplateRestartParams(
     userData,
     ...(metadata ? { metadata } : {}),
   };
+  return withSecureTls(spec, template.secureTls ?? [], secureTls);
 }
 
 /**

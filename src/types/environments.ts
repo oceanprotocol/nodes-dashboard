@@ -68,6 +68,8 @@ export type ComputeEnvironment = {
     computeJobs?: boolean
     /** `services` gates service-on-demand (long-lived containers, e.g. vLLM inference) */
     services?: boolean
+    /** `secureTls` means the node serves service ports over https (serviceStart/serviceRestart `secureTls`) */
+    secureTls?: boolean
   };
   fees?: ComputeEnvFeesStructure;
   free?: {
