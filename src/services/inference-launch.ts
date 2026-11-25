@@ -703,6 +703,8 @@ export type BookedServiceResources = {
    * in use, so drawing ids from the env's free units would leave them out.
    */
   gpuRequests: GpuRequest[];
+  /** Booked GPU ids the env no longer advertises. Their fee is unknown, so the booking cannot be priced. */
+  unpricedGpuIds: string[];
   /** The booked CPU/RAM/disk as `exact` sizing — shown/priced verbatim, never re-clamped. */
   sizing: ResourceSizing;
 };
@@ -751,9 +753,13 @@ export function parseServiceResources(
   // A booked GPU id the env no longer advertises can't be mapped to a group — attribute it to a `GPU`
   // key no group uses, so its units aren't silently dropped from the record.
   const envGpuIds = new Set(envGpus.map((r) => r.id));
+  const unpricedGpuIds: string[] = [];
   booked.forEach((amount, id) => {
     if (isGpuId(id) && !envGpuIds.has(id)) {
       gpuSelection.GPU = (gpuSelection.GPU ?? 0) + amount;
+      if (amount > 0) {
+        unpricedGpuIds.push(id);
+      }
     }
   });
 
@@ -764,6 +770,7 @@ export function parseServiceResources(
   return {
     gpuSelection,
     gpuRequests,
+    unpricedGpuIds,
     sizing: { mode: 'exact', cpu: amountOf('cpu'), ram: amountOf('ram'), disk: amountOf('disk') },
   };
 }

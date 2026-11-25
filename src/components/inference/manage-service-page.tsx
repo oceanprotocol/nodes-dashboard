@@ -535,7 +535,7 @@ const ManageServicePage: React.FC = () => {
     [job, environment]
   );
   const bookedGpuPlan = useMemo<GpuPlan | undefined>(() => {
-    if (!bookedResources || !environment) {
+    if (!bookedResources || !environment || bookedResources.unpricedGpuIds.length > 0) {
       return undefined;
     }
     return {
@@ -922,7 +922,7 @@ const ManageServicePage: React.FC = () => {
   // model one, and picking that branch before the match settles sends a template service to the model
   // picker instead of to payment.
   const canProlong =
-    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!bookedResources && !heldLock;
+    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!bookedGpuPlan && !heldLock;
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   // A curated model answers only to its served name, which is known only from its launch flags.
@@ -1042,7 +1042,9 @@ const ManageServicePage: React.FC = () => {
           ? 'Loading service details. Try again in a moment.'
           : heldLock
             ? serviceEscrowLockMessage(heldLock)
-            : 'This service can no longer be extended.'
+            : bookedResources && bookedResources.unpricedGpuIds.length > 0
+              ? 'This environment no longer offers a GPU this service holds, so the extension cannot be priced.'
+              : 'This service can no longer be extended.'
       );
       return;
     }
