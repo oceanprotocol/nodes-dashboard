@@ -41,9 +41,18 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
   // headroom left. Both bounds may be absent, and they can contradict each other (see noHeadroom) —
   // clamping the max last keeps the seed at the headroom in that case, which reads correctly next to
   // the error rather than showing a value larger than what is left.
+  //
+  // The headroom ticks down every second, so it is floored to whole minutes: otherwise the field shows a
+  // changing decimal (2417 s reads 40.2833 min). The exact headroom is kept only when flooring would drop
+  // the seed to zero or below the minimum the node will sell.
   const seedSeconds = (min: number, max?: number) => {
     const seed = Math.max(DEFAULT_PROLONG_SECONDS, min);
-    return max !== undefined ? Math.min(seed, Math.max(0, max)) : seed;
+    if (max === undefined) {
+      return seed;
+    }
+    const headroom = Math.max(0, max);
+    const wholeMinutes = Math.floor(headroom / 60) * 60;
+    return Math.min(seed, wholeMinutes > 0 && wholeMinutes >= min ? wholeMinutes : headroom);
   };
 
   const [seconds, setSeconds] = useState(() => seedSeconds(minSeconds, maxSeconds));
@@ -111,7 +120,7 @@ const ProlongSessionModal: React.FC<ProlongSessionModalProps> = ({
         <div className="textSecondary">Choose how much extra runtime to add</div>
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
-          defaultUnit="hours"
+          defaultUnit="minutes"
           disabled={noHeadroom}
           errorText={error ?? undefined}
           hint={

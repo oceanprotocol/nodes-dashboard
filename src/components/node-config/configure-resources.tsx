@@ -181,8 +181,10 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
     onChange(setEnvResource(env, resourceId, { min, max }));
   };
 
+  // The node's schema wants integer seconds, but the pickers work in min/hrs, so a fractional minute
+  // (e.g. a sub-minute value retyped as 0.1667 min) would otherwise send 10.002 s.
   const handleJobDurationChange = (key: 'minJobDuration' | 'maxJobDuration', seconds: number) => {
-    onChange({ ...env, [key]: seconds });
+    onChange({ ...env, [key]: Math.round(seconds) });
   };
 
   const handleFreeToggle = (_: unknown, checked: boolean) => {
@@ -198,7 +200,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
   };
 
   const handleFreeDurationChange = (key: 'minJobDuration' | 'maxJobDuration', seconds: number) => {
-    onChange({ ...env, free: { ...env.free!, [key]: seconds } });
+    onChange({ ...env, free: { ...env.free!, [key]: Math.round(seconds) } });
   };
 
   const handleFreeMaxJobsChange = (value: string) => {
@@ -422,7 +424,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
       <div className={styles.jobDurationRow}>
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
-          defaultUnit="seconds"
+          defaultUnit="minutes"
           disabled={disabled}
           label="Min. job duration"
           onChange={(seconds) => handleJobDurationChange('minJobDuration', seconds)}
@@ -431,7 +433,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
         />
         <DurationInput
           availableUnits={DURATION_UNIT_OPTIONS}
-          defaultUnit="seconds"
+          defaultUnit="minutes"
           disabled={disabled}
           label="Max. job duration"
           onChange={(seconds) => handleJobDurationChange('maxJobDuration', seconds)}
@@ -545,7 +547,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
           <div className={styles.jobDurationRow}>
             <DurationInput
               availableUnits={DURATION_UNIT_OPTIONS}
-              defaultUnit="seconds"
+              defaultUnit="minutes"
               disabled={disabled}
               label="Min. test job duration"
               onChange={(seconds) => handleFreeDurationChange('minJobDuration', seconds)}
@@ -554,7 +556,7 @@ const EnvEditor: React.FC<EnvEditorProps> = ({ allResources, disabled, env, onCh
             />
             <DurationInput
               availableUnits={DURATION_UNIT_OPTIONS}
-              defaultUnit="seconds"
+              defaultUnit="minutes"
               disabled={disabled}
               label="Max. test job duration"
               onChange={(seconds) => handleFreeDurationChange('maxJobDuration', seconds)}
