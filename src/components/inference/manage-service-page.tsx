@@ -54,6 +54,7 @@ import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/service-readiness';
 import { includedRepoId, isBundle, isCurated } from '@/types/templates';
+import { gpuFeesOf, GpuPlan, gpuPriceOf } from '@/utils/env-resources';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
@@ -533,6 +534,15 @@ const ManageServicePage: React.FC = () => {
     () => (job && environment ? parseServiceResources(environment.resources ?? [], job.resources) : null),
     [job, environment]
   );
+  const bookedGpuPlan = useMemo<GpuPlan | undefined>(() => {
+    if (!bookedResources || !environment) {
+      return undefined;
+    }
+    return {
+      requests: bookedResources.gpuRequests,
+      gpuPrice: gpuPriceOf(bookedResources.gpuRequests, gpuFeesOf(environment)),
+    };
+  }, [bookedResources, environment]);
   const gpuSelection = bookedResources?.gpuSelection ?? selectedEnv?.gpuSelection;
   const sizing = bookedResources?.sizing ?? selectedEnv?.sizing;
 
@@ -1041,7 +1051,7 @@ const ManageServicePage: React.FC = () => {
     // into context (query keeps it for a hard reload).
     setJobDurationSeconds(extraSeconds);
     const query = {
-      ...buildSelectionQuery(selectionOverrides),
+      ...buildSelectionQuery({ ...selectionOverrides, gpuPlan: bookedGpuPlan }),
       duration: String(extraSeconds),
       prolong: '1',
       serviceId: id,
@@ -1232,6 +1242,7 @@ const ManageServicePage: React.FC = () => {
                 <InferenceEnvironmentCard
                   durationSeconds={durationTotalSeconds}
                   environment={environment}
+                  gpuRequests={bookedResources?.gpuRequests}
                   gpuSelection={gpuSelection}
                   nodeInfo={nodeInfo}
                   sizing={sizing}

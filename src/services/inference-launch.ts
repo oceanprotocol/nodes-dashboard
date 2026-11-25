@@ -1,4 +1,4 @@
-import { GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
+import { GpuRequest, GpuSelection, ResourceSizing } from '@/components/hooks/use-inference-allocation';
 import { CHAIN_ID } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
@@ -698,6 +698,11 @@ function isGpuId(id: string, type?: string): boolean {
 export type BookedServiceResources = {
   /** Per-GPU-type unit counts, keyed the way useInferenceAllocation merges types (by description). */
   gpuSelection: GpuSelection;
+  /**
+   * The booked GPU ids the env still advertises. Pricing must name these: the service's own units are
+   * in use, so drawing ids from the env's free units would leave them out.
+   */
+  gpuRequests: GpuRequest[];
   /** The booked CPU/RAM/disk as `exact` sizing — shown/priced verbatim, never re-clamped. */
   sizing: ResourceSizing;
 };
@@ -752,8 +757,13 @@ export function parseServiceResources(
     }
   });
 
+  const gpuRequests = envGpus
+    .map((gpu) => ({ id: gpu.id, amount: booked.get(gpu.id) ?? 0 }))
+    .filter((request) => request.amount > 0);
+
   return {
     gpuSelection,
+    gpuRequests,
     sizing: { mode: 'exact', cpu: amountOf('cpu'), ram: amountOf('ram'), disk: amountOf('disk') },
   };
 }
