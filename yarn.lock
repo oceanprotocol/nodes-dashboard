@@ -12630,9 +12630,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"botid@npm:1.5.12":
-  version: 1.5.12
-  resolution: "botid@npm:1.5.12"
+"botid@npm:1.5.13":
+  version: 1.5.13
+  resolution: "botid@npm:1.5.13"
   peerDependencies:
     next: "*"
     react: ^18.0.0 || ^19.0.0
@@ -12641,7 +12641,7 @@ __metadata:
       optional: true
     react:
       optional: true
-  checksum: 10c0/44e45d291672311517f908d927ee55d6f81a6c45a6888ecb5ff93ee6df6fa3bc3869101e3f3e9fda2c3dde90e70d477c83093911b0ae054deceae6cb646022bc
+  checksum: 10c0/7ef7ac1bcc2765ac2c79b954d479ccd00b73ee0be84a8be1272b2972773673e27913bab227234ecc26c8eb8251317b12ccf87fc73a706329493bf7f20b9e12d3
   languageName: node
   linkType: hard
 
@@ -18511,7 +18511,7 @@ __metadata:
     alchemy-sdk: "npm:3.6.5"
     axios: "npm:1.20.0"
     bignumber.js: "npm:^9.3.1"
-    botid: "npm:1.5.12"
+    botid: "npm:1.5.13"
     classnames: "npm:^2.5.0"
     date-fns: "npm:^2.30.0"
     dayjs: "npm:^1.11.10"
