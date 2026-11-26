@@ -11,7 +11,7 @@ import { useRunJobContext } from '@/context/run-job-context';
 import { useP2P } from '@/contexts/P2PContext';
 import { captureError } from '@/lib/analytics';
 import { IdeResourceRequest } from '@/lib/ocean-provider';
-import { SubsidyJobType } from '@/lib/subsidy';
+import { COMPUTE_WORKLOAD, SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { computeEscrowRequirement } from '@/lib/use-payment-info';
 import { usePayerCost } from '@/lib/use-subsidy';
@@ -65,6 +65,8 @@ const Summary = ({ estimatedTotalCost, freeCompute, nodeInfo, selectedEnv, selec
     isOpfEligible: false,
     jobType: SubsidyJobType.COMPUTE,
     nodeAddress: selectedEnv.consumerAddress,
+    nodeUri: multiaddrsOrPeerId ?? undefined,
+    workload: COMPUTE_WORKLOAD,
   });
 
   const checkPaymentStatus = useCallback(async () => {

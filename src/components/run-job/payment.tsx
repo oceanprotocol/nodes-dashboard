@@ -1,7 +1,8 @@
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import PaymentSummary from '@/components/run-job/payment-summary';
-import { SubsidyJobType } from '@/lib/subsidy';
+import { useRunJobContext } from '@/context/run-job-context';
+import { COMPUTE_WORKLOAD, SubsidyJobType } from '@/lib/subsidy';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
 import { usePayerCost } from '@/lib/use-subsidy';
@@ -20,6 +21,8 @@ type PaymentProps = {
 
 const Payment = ({ minLockSeconds, selectedEnv, setPageSubtitle, totalCost }: PaymentProps) => {
   const router = useRouter();
+  const { multiaddrsOrPeerId } = useRunJobContext();
+  const nodeUri = multiaddrsOrPeerId ?? undefined;
 
   // Escrow state (wallet/escrow balances + authorizations) — shared with the inference payment step.
   const {
@@ -44,6 +47,8 @@ const Payment = ({ minLockSeconds, selectedEnv, setPageSubtitle, totalCost }: Pa
     isOpfEligible: false,
     jobType: SubsidyJobType.COMPUTE,
     nodeAddress: selectedEnv.consumerAddress,
+    nodeUri,
+    workload: COMPUTE_WORKLOAD,
   });
 
   // Deposit + (re)authorization the session needs, and whether escrow already satisfies it.
@@ -98,10 +103,12 @@ const Payment = ({ minLockSeconds, selectedEnv, setPageSubtitle, totalCost }: Pa
         isOpfEligible={false}
         loadPaymentInfo={loadPaymentInfo}
         nodeAddress={selectedEnv.consumerAddress}
+        nodeUri={nodeUri}
         subsidyJobType={SubsidyJobType.COMPUTE}
         topupSource="run_job"
         totalCost={totalCost}
         walletBalance={walletBalance ?? 0}
+        workload={COMPUTE_WORKLOAD}
       />
       <div className="actionsGroupLgBetween">
         <Button

@@ -5,11 +5,13 @@ import {
   getDiscountLimitsLabel,
   getProgramSummary,
   getSubsidyPaymentNote,
+  SUBSIDY_GATE_COPY,
   SUBSIDY_PAYMENT_COPY,
 } from '@/components/subsidy/subsidy-copy';
 import SubsidyPaymentChips from '@/components/subsidy/subsidy-payment-chips';
 import { USDC } from '@/constants/tokens';
 import { useProfileContext } from '@/context/profile-context';
+import type { NodeUri } from '@/contexts/P2PContext';
 import {
   formatSubsidyPeriod,
   formatSubsidyReset,
@@ -17,6 +19,7 @@ import {
   getSubsidyJobTypeName,
   SubsidyJobType,
   SubsidyPayment,
+  SubsidyWorkload,
 } from '@/lib/subsidy';
 import { useIsNodeSubsidized, useSubsidyProgram, useSubsidyQuote, useSubsidyUsage } from '@/lib/use-subsidy';
 import { SubsidyStatus } from '@/types/subsidy';
@@ -73,11 +76,21 @@ type PaymentSubsidyProps = {
   jobType: SubsidyJobType;
   /** The node decides which subsidy applies. */
   nodeAddress?: string;
+  nodeUri?: NodeUri;
   totalCost: number;
+  workload: SubsidyWorkload | null | undefined;
 };
 
 /** Amounts are quotes; the lock settles the final figure. */
-const PaymentSubsidy = ({ format, isOpfEligible, jobType, nodeAddress, totalCost }: PaymentSubsidyProps) => {
+const PaymentSubsidy = ({
+  format,
+  isOpfEligible,
+  jobType,
+  nodeAddress,
+  nodeUri,
+  totalCost,
+  workload,
+}: PaymentSubsidyProps) => {
   const { subsidyInfo } = useProfileContext();
   const { data: program, isError: isProgramError } = useSubsidyProgram();
   const { data: usage, isError: isUsageError } = useSubsidyUsage();
@@ -87,6 +100,8 @@ const PaymentSubsidy = ({ format, isOpfEligible, jobType, nodeAddress, totalCost
     isOpfEligible,
     jobType,
     nodeAddress,
+    nodeUri,
+    workload,
   });
 
   if (totalCost <= 0) {
@@ -114,6 +129,7 @@ const PaymentSubsidy = ({ format, isOpfEligible, jobType, nodeAddress, totalCost
   );
 
   const customCovered = quote?.custom ?? [];
+  const customGated = (quote?.gated ?? []).filter((entry) => entry.kind === 'custom');
   const costAfter = Math.max(0, totalCost - (quote?.total ?? 0));
   const chargedInFull =
     customCovered.length > 0 ? "The ON subsidy doesn't apply to this job" : 'This job is charged in full';
@@ -230,6 +246,20 @@ const PaymentSubsidy = ({ format, isOpfEligible, jobType, nodeAddress, totalCost
       return null;
     }
 
+    const opfGated = quote.gated.find((entry) => entry.kind !== 'custom');
+    if (opfTotal <= 0 && opfGated) {
+      return (
+        <SubsidyRow
+          description={`${customCovered.length > 0 ? '' : 'This job is charged in full. '}${SUBSIDY_GATE_COPY[opfGated.reason]}`}
+          icon={<InfoOutlinedIcon fontSize="small" />}
+          jobType={jobType}
+          state="job_not_subsidized"
+          title="This node doesn't apply the ON subsidy to this job"
+          tone="neutral"
+        />
+      );
+    }
+
     if (opfTotal <= 0) {
       return (
         <SubsidyRow
@@ -320,6 +350,17 @@ const PaymentSubsidy = ({ format, isOpfEligible, jobType, nodeAddress, totalCost
           state="custom_applied"
           title={`Other subsidy: ${formatText(entry.amount)} ${USDC.symbol} off`}
           tone="success"
+        />
+      ))}
+      {customGated.map((entry) => (
+        <SubsidyRow
+          description={`Contract ${formatWalletAddress(entry.address)}. ${SUBSIDY_GATE_COPY[entry.reason]}`}
+          icon={<InfoOutlinedIcon fontSize="small" />}
+          jobType={jobType}
+          key={entry.address}
+          state="custom_not_accepted"
+          title="Other subsidy not applied to this job"
+          tone="neutral"
         />
       ))}
       {isOpfEligible ? renderOpfRow() : null}

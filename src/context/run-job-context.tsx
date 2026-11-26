@@ -14,7 +14,7 @@ import {
 import { directNodeCommand } from '@/lib/direct-node-command';
 import { generateJobName } from '@/lib/job-name';
 import { parseComputeStartReply } from '@/lib/payment-analytics';
-import { SubsidyJobType } from '@/lib/subsidy';
+import { computeWorkload, SubsidyJobType } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { useStartWithSubsidy } from '@/lib/use-subsidy';
 import { getNodeEnvs, startCompute, startFreeCompute } from '@/services/nodeService';
@@ -334,7 +334,9 @@ export const RunJobProvider = ({ children }: { children: ReactNode }) => {
               jobType: SubsidyJobType.COMPUTE,
               nodeAddress: selectedEnv.consumerAddress,
               nodeId: nodeInfo?.id ?? selectedEnv.nodeId,
+              nodeUri,
               payer: consumerAddress,
+              workload: computeWorkload(algorithm),
             },
             (subsidyProviders) =>
               startCompute({

@@ -1,12 +1,20 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
+import type { NodeUri } from '@/contexts/P2PContext';
 import { getRpc } from '@/lib/constants';
 import { EscrowJobRef, EscrowLockCycle, EscrowLockStatus, toTokenAmount } from '@/lib/escrow-events';
+import { withTimeout } from '@/lib/with-timeout';
 import { recallCustomSubsidies } from '@/services/custom-subsidies-memory';
+import { getNodeStatus } from '@/services/nodeService';
 import {
+  ComputeAlgorithm,
+  filterSubsidyByAllowedImages,
+  isNonEmpty,
   OneTimeSubsidyProvider,
   OPFSubsidyProvider,
+  ServiceContainerSpec,
   SubsidyBucket,
+  SubsidyImageContainer,
   SubsidyKind,
   SubsidyMode,
   SubsidyModeConfig,
@@ -71,10 +79,35 @@ export type SubsidyQuoteLine = {
   payment: SubsidyPayment;
 };
 
+/** A node's subsidy rules for the current chain, as its status reports them. */
+export type NodeSubsidyPolicy = {
+  /** Provider address to the images it sponsors. A provider that isn't listed sponsors any image. */
+  allowedImages: Record<string, string[]>;
+  /** The node rejects a request that names a provider outside `providers`. */
+  filter: boolean;
+  providers: string[];
+};
+
+/** What a node's image rules read from a job: the image it runs, and whether the request overrides what runs in it. */
+export type SubsidyWorkload = {
+  container: SubsidyImageContainer;
+  hasCustomEntrypoint: boolean;
+};
+
+export type SubsidyGateReason = 'image_not_allowed' | 'outside_node_set';
+
+/** A provider the node wouldn't apply to the job, so it was left out of the quote. */
+export type SubsidyGatedProvider = {
+  address: string;
+  kind: SubsidyLineKind;
+  reason: SubsidyGateReason;
+};
+
 export type SubsidyQuote = {
   /** Custom providers that cover part of the job, in lock order. */
   custom: { address: string; amount: number; payment: SubsidyPayment }[];
   discount: number;
+  gated: SubsidyGatedProvider[];
   /** Every provider that covers part of the job, in lock order (same order as `providers`). */
   lines: SubsidyQuoteLine[];
   oneTime: number;
@@ -329,11 +362,88 @@ export const isNodeSubsidized = async (program: SubsidyProgram, nodeAddress: str
   return allowed.some(Boolean);
 };
 
+const NODE_STATUS_TIMEOUT_MS = 15_000;
+
+/** `null` for a node that reports no subsidy rules: it predates provider lists and ignores the one it is sent. */
+export const loadNodeSubsidyPolicy = async (nodeUri: NodeUri): Promise<NodeSubsidyPolicy | null> => {
+  const status = await withTimeout((signal) => getNodeStatus(nodeUri, signal), NODE_STATUS_TIMEOUT_MS, 'Node status');
+  if (!status.subsidyProviders) {
+    return null;
+  }
+  const providers = status.subsidyProviders[String(CHAIN_ID)];
+  return {
+    allowedImages: status.subsidyProviderAllowedImages ?? {},
+    filter: status.subsidyProviderFilter ?? false,
+    providers: Array.isArray(providers) ? providers : [],
+  };
+};
+
+/** Works for start params and for a running service alike. */
+export const serviceWorkload = (
+  spec: Pick<ServiceContainerSpec, 'checksum' | 'dockerCmd' | 'dockerEntrypoint' | 'dockerfile' | 'image' | 'tag'>
+): SubsidyWorkload => ({
+  container: { checksum: spec.checksum, dockerfile: spec.dockerfile, image: spec.image, tag: spec.tag },
+  hasCustomEntrypoint: isNonEmpty(spec.dockerEntrypoint) || isNonEmpty(spec.dockerCmd),
+});
+
+/** An algorithm the caller supplies counts as a custom entrypoint: the image runs whatever it is handed. */
+export const computeWorkload = (algorithm: ComputeAlgorithm): SubsidyWorkload => ({
+  container: algorithm.meta?.container ?? {},
+  hasCustomEntrypoint:
+    isNonEmpty(algorithm.meta?.container?.entrypoint) ||
+    isNonEmpty(algorithm.meta?.rawcode) ||
+    algorithm.fileObject != null ||
+    isNonEmpty(algorithm.documentId) ||
+    isNonEmpty(algorithm.serviceId),
+});
+
+/**
+ * A compute job whose algorithm isn't written yet. The dashboard always sends an entrypoint with the algorithm, which
+ * no provider with image rules accepts, so the image doesn't matter.
+ */
+export const COMPUTE_WORKLOAD: SubsidyWorkload = { container: {}, hasCustomEntrypoint: true };
+
+/**
+ * Mirrors what the node does with a provider list: it rejects the request when its filter is on and a provider is
+ * outside its own set, and silently leaves out a provider whose image rules the job doesn't meet.
+ * Without a policy nothing is dropped. Without a workload, every provider with image rules is.
+ */
+export const gateSubsidyProviders = ({
+  addresses,
+  policy,
+  workload,
+}: {
+  addresses: string[];
+  policy: NodeSubsidyPolicy | null;
+  workload: SubsidyWorkload | null;
+}): { dropped: { address: string; reason: SubsidyGateReason }[]; kept: string[] } => {
+  if (!policy) {
+    return { dropped: [], kept: addresses };
+  }
+  const nodeSet = new Set(policy.providers.map((address) => address.toLowerCase()));
+  const isAccepted = (address: string) => !policy.filter || nodeSet.has(address.toLowerCase());
+  const image = filterSubsidyByAllowedImages(
+    addresses.filter(isAccepted),
+    workload?.container,
+    workload?.hasCustomEntrypoint ?? false,
+    policy.allowedImages
+  );
+  return {
+    dropped: [
+      ...addresses
+        .filter((address) => !isAccepted(address))
+        .map((address) => ({ address, reason: 'outside_node_set' as const })),
+      ...image.dropped.map((address) => ({ address, reason: 'image_not_allowed' as const })),
+    ],
+    kept: image.kept,
+  };
+};
+
 /**
  * Prepaid providers cover the job at lock, postpaid ones refund part of what the payer locked at claim.
  * Each provider sees what the previous ones left uncovered.
  * Order: custom prepaid, custom postpaid, ON prepaid, ON postpaid; custom ones keep the order added.
- * A custom provider that fails to quote is skipped.
+ * A custom provider that fails to quote is skipped. Providers the node wouldn't apply are not quoted (`gated`).
  */
 export const quoteSubsidy = async ({
   cost,
@@ -341,19 +451,31 @@ export const quoteSubsidy = async ({
   jobType,
   nodeAddress,
   payer,
+  policy,
   program,
+  workload,
 }: {
   cost: number;
   customProviders?: string[];
   jobType: SubsidyJobType;
   nodeAddress: string;
   payer: string;
+  policy: NodeSubsidyPolicy | null;
   program: SubsidyProgram | null;
+  workload: SubsidyWorkload | null;
 }): Promise<SubsidyQuote> => {
   const amount = cost.toFixed(USDC.decimals);
-  const programProviders = program?.providers ?? [];
-  const programAddresses = new Set(programProviders.map((address) => address.toLowerCase()));
-  const custom = customProviders.filter((address) => !programAddresses.has(address.toLowerCase()));
+  const programAddresses = new Set(program?.providers.map((address) => address.toLowerCase()));
+  const gate = gateSubsidyProviders({
+    addresses: [
+      ...customProviders.filter((address) => !programAddresses.has(address.toLowerCase())),
+      ...(program?.providers ?? []),
+    ],
+    policy,
+    workload,
+  });
+  const programProviders = gate.kept.filter((address) => programAddresses.has(address.toLowerCase()));
+  const custom = gate.kept.filter((address) => !programAddresses.has(address.toLowerCase()));
   const discountAddresses = new Set(program?.discount?.addresses);
   const oneTimeAddresses = new Set(program?.oneTime?.addresses);
   const kindOf = (address: string): SubsidyLineKind =>
@@ -429,9 +551,11 @@ export const quoteSubsidy = async ({
     .filter((address) => covered[address] > 0)
     .map((address) => ({ address, amount: covered[address], payment: payments[address] }));
   const providers = order.filter((address) => covered[address] > 0);
+  const isDiscountQuoted = programProviders.some((address) => discountAddresses.has(address));
   return {
     custom: customCovered,
     discount,
+    gated: gate.dropped.map(({ address, reason }) => ({ address, kind: kindOf(address), reason })),
     lines: providers.map((address) => ({
       address,
       amount: covered[address],
@@ -446,7 +570,8 @@ export const quoteSubsidy = async ({
     providers,
     quotedProviders,
     total: sum(Object.values(covered)),
-    uncappedDiscount: program?.discount ? ((discountBase ?? remaining) * program.discount.percent) / 100 : 0,
+    uncappedDiscount:
+      program?.discount && isDiscountQuoted ? ((discountBase ?? remaining) * program.discount.percent) / 100 : 0,
   };
 };
 
@@ -476,19 +601,24 @@ export type JobSubsidy = {
  * Quotes the subsidy for a job about to start. Never throws.
  * When nothing is quoted, a job the ON subsidy covers leaves the choice to the node. Any other job only gets custom
  * providers, and tells the node to apply no subsidy instead of falling back to its choice.
+ * The node's rules are read fresh, so the providers sent are the ones it accepts now.
  */
 export const resolveJobSubsidy = async ({
   cost,
   isOpfEligible,
   jobType,
   nodeAddress,
+  nodeUri,
   payer,
+  workload,
 }: {
   cost: number;
   isOpfEligible: boolean;
   jobType: SubsidyJobType;
   nodeAddress: string;
+  nodeUri: NodeUri;
   payer: string;
+  workload: SubsidyWorkload | null;
 }): Promise<JobSubsidy> => {
   const fallback = isOpfEligible ? undefined : [];
   if (cost <= 0) {
@@ -502,7 +632,8 @@ export const resolveJobSubsidy = async ({
     if (!program && customProviders.length === 0) {
       return { providers: fallback, quote: null, status: 'no_providers' };
     }
-    const quote = await quoteSubsidy({ cost, customProviders, jobType, nodeAddress, payer, program });
+    const policy = await loadNodeSubsidyPolicy(nodeUri);
+    const quote = await quoteSubsidy({ cost, customProviders, jobType, nodeAddress, payer, policy, program, workload });
     return quote.providers.length > 0
       ? { providers: quote.providers, quote, status: 'covered' }
       : { providers: fallback, quote, status: 'not_covered' };

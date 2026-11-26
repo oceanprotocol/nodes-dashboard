@@ -1,9 +1,10 @@
 import { CHAIN_ID } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
+import type { NodeUri } from '@/contexts/P2PContext';
 import { captureError, getHttpStatus } from '@/lib/analytics';
 import type { InferenceBranch } from '@/lib/inference-analytics';
 import { serviceEscrowJobId } from '@/lib/service-escrow-lock';
-import { getSubsidyJobTypeName, JobSubsidy, SubsidyJobType, SubsidyLineKind } from '@/lib/subsidy';
+import { getSubsidyJobTypeName, JobSubsidy, SubsidyJobType, SubsidyLineKind, SubsidyWorkload } from '@/lib/subsidy';
 import type { ComputeJobPayment, NodeComputeJob, ServiceJob } from '@oceanprotocol/lib';
 import posthog from 'posthog-js';
 
@@ -17,7 +18,8 @@ import posthog from 'posthog-js';
  * Both carry the payment context and the subsidy quote taken at start (`buildPaymentProps`). Amounts are quotes in
  * USDC: ON subsidy providers are postpaid, so what they actually pay settles on-chain when the node claims.
  * `job_payment_accepted` adds `subsidyStatus` (`deriveSubsidyStatus`), the node's own provider list, and the escrow
- * jobId that joins the payment to its on-chain lock.
+ * jobId that joins the payment to its on-chain lock. `gatedProviders` are the ones the dashboard left out because the
+ * node wouldn't apply them; `nodeDroppedSubsidies` are the ones the node removed itself, which should stay empty.
  */
 
 export type PaymentAction = 'prolong' | 'start';
@@ -37,9 +39,13 @@ export type PaidStartContext = {
   /** The environment's consumerAddress: the escrow payee, and the node the subsidy was quoted for. */
   nodeAddress: string;
   nodeId: string;
+  /** Where the node's subsidy rules are read from. */
+  nodeUri: NodeUri;
   payer: string;
   /** Prolong only. A service start learns its id from the node's reply. */
   serviceId?: string;
+  /** What the job runs, which the node's image rules are checked against. `null` when it can't be known. */
+  workload: SubsidyWorkload | null;
 };
 
 export type ValidPaymentReply = {
@@ -48,6 +54,8 @@ export type ValidPaymentReply = {
   escrowJobId?: string;
   jobId?: string;
   lockTx?: string;
+  /** Providers the node's image rules removed from this payment, lowercase. `null` when the reply names none. */
+  nodeDroppedSubsidies: string[] | null;
   /** The reply comes from an ocean-node that honours subsidy provider lists (v5+). */
   nodeSubsidyAware: boolean;
   /** The providers the node used for this payment, lowercase. `null` when the reply doesn't say. */
@@ -64,7 +72,9 @@ export type SubsidyStatus = 'not_subsidized' | 'subsidized' | 'unknown';
  * A COMPUTE_START reply as ocean-node v5 sends it. ocean.js types `computeStart` as `ComputeJob`, without the escrow
  * fields; at runtime the job also carries `jobIdHash` and `payment.subsidyProviders`, the node's effective list.
  */
-type ComputeStartReply = NodeComputeJob & { payment?: ComputeJobPayment & { subsidyProviders?: unknown } };
+type ComputeStartReply = NodeComputeJob & {
+  payment?: ComputeJobPayment & { droppedSubsidies?: unknown; subsidyProviders?: unknown };
+};
 
 const REASON_MAX_LENGTH = 300;
 const QUOTE_ERROR_MAX_LENGTH = 200;
@@ -110,6 +120,7 @@ export const parseComputeStartReply = (result: unknown): PaymentReply => {
     escrowJobId: toDecimalJobId(job.jobIdHash),
     jobId,
     lockTx: nonEmptyString(job.payment?.lockTx),
+    nodeDroppedSubsidies: toAddressList(job.payment?.droppedSubsidies),
     nodeSubsidyAware: nodeSubsidyProviders !== null,
     nodeSubsidyProviders,
     valid: true,
@@ -126,6 +137,7 @@ export const parseServiceStartReply = (result: unknown): PaymentReply => {
   const nodeSubsidyProviders = toAddressList(job.payment?.subsidyProviders);
   return {
     escrowJobId: serviceEscrowJobId(serviceId),
+    nodeDroppedSubsidies: toAddressList(job.payment?.droppedSubsidies),
     nodeSubsidyAware: nodeSubsidyProviders !== null,
     nodeSubsidyProviders,
     serviceId,
@@ -140,7 +152,9 @@ export const parseServiceExtendReply =
     const job = asObject<ServiceJob>(firstOf(result));
     const extendPayments = job?.extendPayments;
     const extension = Array.isArray(extendPayments)
-      ? asObject<{ claimTx: unknown; lockTx: unknown }>(extendPayments[extendPayments.length - 1])
+      ? asObject<{ claimTx: unknown; droppedSubsidies: unknown; lockTx: unknown }>(
+          extendPayments[extendPayments.length - 1]
+        )
       : null;
     const claimTx = nonEmptyString(extension?.claimTx);
     if (!job || job.serviceId !== serviceId || !claimTx) {
@@ -150,6 +164,7 @@ export const parseServiceExtendReply =
       claimTx,
       escrowJobId: serviceEscrowJobId(serviceId),
       lockTx: nonEmptyString(extension?.lockTx),
+      nodeDroppedSubsidies: toAddressList(extension?.droppedSubsidies),
       // The reply's `payment` is the service's start payment, so it only tells which node version created the service.
       nodeSubsidyAware: Array.isArray(job.payment?.subsidyProviders),
       nodeSubsidyProviders: null,
@@ -224,6 +239,11 @@ export const buildPaymentProps = (context: PaidStartContext, subsidy: JobSubsidy
     chainId: CHAIN_ID,
     durationSeconds: context.durationSeconds,
     environmentId: context.environmentId,
+    gatedProviders: (subsidy.quote?.gated ?? []).map(({ address, kind, reason }) => ({
+      kind,
+      provider: address.toLowerCase(),
+      reason,
+    })),
     isOpfEligible: context.isOpfEligible,
     jobType: getSubsidyJobTypeName(context.jobType),
     nodeAddress: context.nodeAddress.toLowerCase(),
@@ -259,6 +279,7 @@ export const capturePaymentAccepted = (context: PaidStartContext, subsidy: JobSu
       escrowJobId: reply.escrowJobId,
       jobId: reply.jobId,
       lockTx: reply.lockTx,
+      nodeDroppedSubsidies: reply.nodeDroppedSubsidies,
       nodeSubsidyProviders: reply.nodeSubsidyProviders,
       serviceId: reply.serviceId ?? context.serviceId,
       subsidyStatus: deriveSubsidyStatus(context.action, subsidy, reply),

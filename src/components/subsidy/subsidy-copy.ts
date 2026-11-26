@@ -1,5 +1,5 @@
 import { USDC } from '@/constants/tokens';
-import { cappedWindows, formatSubsidyPeriod, SubsidyPayment, SubsidyProgram } from '@/lib/subsidy';
+import { cappedWindows, formatSubsidyPeriod, SubsidyGateReason, SubsidyPayment, SubsidyProgram } from '@/lib/subsidy';
 
 export const SUBSIDY_STATUS_ERROR = "Couldn't load your subsidy progress.";
 
@@ -16,6 +16,11 @@ export const SUBSIDY_PAYMENT_COPY: Record<SubsidyPayment, { label: string; note:
     note: 'Paid up front when the job starts, so only your part needs to be in escrow.',
     tooltip: 'The subsidy pays its part when the job starts. Only your part needs to be in escrow.',
   },
+};
+
+export const SUBSIDY_GATE_COPY: Record<SubsidyGateReason, string> = {
+  image_not_allowed: 'This node only applies it to approved images that run without a custom command.',
+  outside_node_set: 'This node only accepts the subsidies it lists.',
 };
 
 export const getSubsidyPaymentNote = (payments: SubsidyPayment[]) =>
