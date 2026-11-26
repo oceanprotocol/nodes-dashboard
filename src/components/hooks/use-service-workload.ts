@@ -9,8 +9,10 @@ const STALE_TIME = 30_000;
 const STATUS_TIMEOUT_MS = 15_000;
 
 type ServiceWorkloadState = {
-  /** Reads the workload even when that asks for a signature. Resolves with `null` when it can't be read. */
+  /** Reads the workload from the node now, even when that asks for a signature. Resolves with `null` when it can't be read. */
   load: () => Promise<SubsidyWorkload | null>;
+  /** The workload isn't read until the user signs in to the node. */
+  needsSignature: boolean;
   /** `undefined` while it loads, `null` when it can't be read or there is no service. */
   workload: SubsidyWorkload | null | undefined;
 };
@@ -63,12 +65,16 @@ export function useServiceWorkload({
       return null;
     }
     try {
-      return await queryClient.fetchQuery(query);
+      return await queryClient.fetchQuery({ ...query, staleTime: 0 });
     } catch (error) {
       console.error('Failed to read the service workload', error);
       return null;
     }
   }, [hasService, query, queryClient]);
 
-  return { load, workload: !hasService || !hasToken || isError ? null : data };
+  return {
+    load,
+    needsSignature: hasService && !hasToken,
+    workload: !hasService || !hasToken || isError ? null : data,
+  };
 }

@@ -192,7 +192,7 @@ const sameAddresses = (a: string[], b: string[]) => {
 /**
  * Whether the payment was subsidized, as far as the dashboard can tell when the node accepts it.
  * - `subsidized`: the dashboard quoted a subsidy, and the node confirmed it uses the providers sent. For a prolong,
- *   confirmed means the service was created by a node that honours provider lists.
+ *   confirmed means the service was created by a node that honours provider lists, and none of them was dropped.
  * - `not_subsidized`: nothing was quoted, and the node either can't subsidize (older than v5), was told to apply no
  *   subsidy, used no providers, or only used providers the dashboard had asked and that quoted nothing.
  * - `unknown`: anything else, e.g. a quoted subsidy on a node that ignores provider lists.
@@ -204,7 +204,9 @@ export const deriveSubsidyStatus = (
 ): SubsidyStatus => {
   if (subsidy.status === 'covered') {
     if (action === 'prolong') {
-      return reply.nodeSubsidyAware ? 'subsidized' : 'unknown';
+      const dropped = new Set(reply.nodeDroppedSubsidies ?? []);
+      const keptAll = (subsidy.providers ?? []).every((address) => !dropped.has(address.toLowerCase()));
+      return reply.nodeSubsidyAware && keptAll ? 'subsidized' : 'unknown';
     }
     return reply.nodeSubsidyProviders && sameAddresses(reply.nodeSubsidyProviders, subsidy.providers ?? [])
       ? 'subsidized'

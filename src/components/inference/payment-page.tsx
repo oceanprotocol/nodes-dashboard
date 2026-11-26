@@ -38,7 +38,7 @@ import { serviceWorkload, SubsidyJobType, SubsidyWorkload } from '@/lib/subsidy'
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
-import { usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
+import { useHasSubsidy, usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
@@ -294,13 +294,29 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     const params = model ? modelParamsByModel[model.id] : undefined;
     return model && params ? serviceWorkload(inferenceContainerSpec(model, params)) : null;
   }, [flowType, modelParamsByModel, selectedModels, selectedTemplate]);
-  const { load: loadRunningWorkload, workload: runningWorkload } = useServiceWorkload({
+  const {
+    load: loadRunningWorkload,
+    needsSignature: workloadNeedsSignature,
+    workload: runningWorkload,
+  } = useServiceWorkload({
     nodeId: selectedEnv?.nodeInfo.id,
     nodeUri: selectedNodeUri,
     serviceId: isProlongMode ? targetServiceId : undefined,
   });
   // A prolong pays for the service as it runs, a start for the selection about to launch.
   const subsidyWorkload = isProlongMode ? runningWorkload : launchWorkload;
+  const hasSubsidy = useHasSubsidy();
+  // Until the running service is read, image-gated subsidies are left out and the price shown is the highest it can be.
+  const needsWorkloadCheck = isProlongMode && hasSubsidy && workloadNeedsSignature;
+  const [checkingWorkload, setCheckingWorkload] = useState(false);
+  const checkRunningWorkload = useCallback(async () => {
+    setCheckingWorkload(true);
+    try {
+      await loadRunningWorkload();
+    } finally {
+      setCheckingWorkload(false);
+    }
+  }, [loadRunningWorkload]);
 
   /** What the payment events record about a paid start or prolong. Quoted with the same `totalCost` the page shows. */
   const buildServicePaymentContext = useCallback(
@@ -359,7 +375,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     return roundTokenAmount(requirement.depositAmount - walletBalance, USDC.address, 'up');
   }, [authorizations, escrowBalance, walletBalance, payerCost, escrowLockSeconds]);
-  const paymentBlocked = !isEditMode && !!selectedEnv && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
+  const paymentBlocked =
+    !isEditMode && !needsWorkloadCheck && !!selectedEnv && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
 
   // Launch mode in the `inference_launch_clicked` vocabulary, shared with inference_payment_blocked.
   const launchMode = isProlongMode
@@ -1459,20 +1476,24 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               // Launch/extend/restart all need the wallet (auth token signature + escrow tx). When it
               // isn't connected, prompt the login modal instead of stranding the user on a dead button;
               // once connected, gate only on the P2P layer being ready.
-              nextDisabled={account.address ? !isReady || paymentBlocked || isSubsidyQuoting : false}
+              nextDisabled={
+                account.address ? !isReady || (!needsWorkloadCheck && (paymentBlocked || isSubsidyQuoting)) : false
+              }
               nextLabel={
                 !account.address
                   ? 'Connect wallet'
-                  : paymentBlocked && !paymentInfoReady && !paymentInfoError
-                    ? 'Checking balance…'
-                    : isProlongMode
-                      ? 'Pay & prolong'
-                      : isEditMode
-                        ? 'Relaunch'
-                        : 'Pay & launch'
+                  : needsWorkloadCheck
+                    ? 'Sign to check subsidy'
+                    : paymentBlocked && !paymentInfoReady && !paymentInfoError
+                      ? 'Checking balance…'
+                      : isProlongMode
+                        ? 'Pay & prolong'
+                        : isEditMode
+                          ? 'Relaunch'
+                          : 'Pay & launch'
               }
-              nextLoading={launching}
-              onNext={account.address ? goToNextStep : login}
+              nextLoading={launching || checkingWorkload}
+              onNext={!account.address ? login : needsWorkloadCheck ? checkRunningWorkload : goToNextStep}
               onPrev={goToPrevStep}
             />
           </>
