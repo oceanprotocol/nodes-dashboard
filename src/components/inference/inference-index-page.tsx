@@ -7,6 +7,7 @@ import SectionTitle from '@/components/section-title/section-title';
 import { InferenceBranch, trackInferenceFlowStarted } from '@/lib/inference-analytics';
 import { INFERENCE_PATHS } from '@/services/inference-url';
 import { SHOWCASE_ITEMS } from '@/services/showcase';
+import { ShowcaseItem } from '@/types/showcase';
 import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
@@ -20,13 +21,17 @@ const FLOW_STEPS: FlowStep[] = [
   { title: 'Call the Endpoint', description: 'OpenAI-compatible API, live logs' },
 ];
 
-const BACKGROUND_MEDIA = SHOWCASE_ITEMS.slice(0, 6).map(({ type, src, poster, width, height }) => ({
-  type,
-  src,
-  poster,
-  width,
-  height,
-}));
+const BACKGROUND_MEDIA = SHOWCASE_ITEMS.filter(
+  (item): item is ShowcaseItem & { type: 'image' | 'video' } => item.type !== 'audio'
+)
+  .slice(0, 6)
+  .map(({ type, src, poster, width, height }) => ({
+    type,
+    src,
+    poster,
+    width,
+    height,
+  }));
 
 const trackEntry = (branch: InferenceBranch) => {
   trackInferenceFlowStarted(branch, 'index');

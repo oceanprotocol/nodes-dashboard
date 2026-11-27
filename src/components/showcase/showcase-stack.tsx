@@ -177,6 +177,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
   const [focused, setFocused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [videoEndedStep, setVideoEndedStep] = useState<number | null>(null);
+  const [soundItemId, setSoundItemId] = useState<string | null>(null);
 
   useEffect(() => {
     setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -191,10 +192,9 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
     return () => observer.disconnect();
   }, []);
 
-  const paused = hovered || focused || reducedMotion;
-
-  const frontIsVideo =
-    items.length > 0 && items[((step % items.length) + items.length) % items.length].type === 'video';
+  const frontItem = items.length > 0 ? items[((step % items.length) + items.length) % items.length] : null;
+  const paused = hovered || focused || reducedMotion || (!!frontItem && soundItemId === frontItem.id);
+  const frontIsVideo = frontItem?.type === 'video';
   const waitingOnVideo = frontIsVideo && videoEndedStep !== step;
 
   // Restarts on every step, so a manual move gets a full interval before the next automatic one. A video
@@ -347,6 +347,9 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
                 href={relative === 0 ? showcaseSourceHref(item.source) : undefined}
                 inert={!visible}
                 item={item}
+                onSoundChange={(soundOn) =>
+                  setSoundItemId((current) => (soundOn ? item.id : current === item.id ? null : current))
+                }
                 onVideoEnded={
                   items.length > 1
                     ? () => {

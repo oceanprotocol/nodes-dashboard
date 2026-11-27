@@ -120,8 +120,59 @@
   overflow-wrap: anywhere;
 }
 
+/* Above the tile's link, so it stays clickable on a linked tile. In the stack it moves inside the cropped
+   card and is scaled back to its normal size, like the chip; `scale` leaves the button's own transform free. */
+.sound {
+  bottom: calc(var(--inset-y, 0px) + 10px / var(--scale, 1));
+  position: absolute;
+  right: calc(var(--inset-x, 0px) + 10px / var(--scale, 1));
+  scale: calc(1 / var(--scale, 1));
+  transform-origin: bottom right;
+  z-index: 3;
+}
+
+.player {
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent1) 24%, transparent),
+    color-mix(in srgb, var(--accent2) 24%, transparent)
+  );
+  display: flex;
+  gap: 2%;
+  justify-content: center;
+  padding: 0 14%;
+
+  span {
+    background: linear-gradient(to top, var(--accent1), var(--accent2));
+    border-radius: 100px;
+    flex: 1;
+    height: calc(var(--bar) * 56%);
+    transform: scaleY(0.4);
+    transition: transform 0.4s ease;
+  }
+
+  &.playing span {
+    animation: player-bar 0.9s ease-in-out var(--delay) infinite alternate;
+  }
+}
+
+@keyframes player-bar {
+  from {
+    transform: scaleY(0.3);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tile .media {
     transition: none;
+  }
+
+  .player.playing span {
+    animation: none;
   }
 }
