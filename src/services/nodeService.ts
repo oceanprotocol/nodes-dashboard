@@ -19,6 +19,7 @@ import {
   type NodeComputeJob,
   type NodeLogsParams,
   type NodeP2P,
+  type NodeStatus,
   type OceanNode,
   type PersistentStorageAccessList,
   type PersistentStorageBucket,
@@ -560,6 +561,15 @@ export async function getNodeJobs(
   signal?: AbortSignal
 ): Promise<NodeComputeJob[]> {
   return ProviderInstance.getNodeJobs(normalizeNodeUri(nodeUri), fromTimestamp, signal);
+}
+
+/** Throws when the node can't be reached: over HTTP ocean.js resolves with nothing instead. */
+export async function getNodeStatus(nodeUri: NodeUri, signal?: AbortSignal): Promise<NodeStatus> {
+  const status = await ProviderInstance.getNodeStatus(normalizeNodeUri(nodeUri), signal);
+  if (!status) {
+    throw new Error('Node status unavailable');
+  }
+  return status;
 }
 
 /**

@@ -8,6 +8,8 @@ export type SubsidyPaymentState =
   | 'applied'
   | 'capped'
   | 'custom_applied'
+  | 'custom_not_accepted'
+  | 'job_not_subsidized'
   | 'limit_reached'
   | 'load_error'
   | 'node_not_subsidized'

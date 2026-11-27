@@ -4,6 +4,7 @@ import Container from '@/components/container/container';
 import useDefaultModelPackages from '@/components/hooks/use-default-model-packages';
 import useInferenceAllocation from '@/components/hooks/use-inference-allocation';
 import useLiveEnv from '@/components/hooks/use-live-env';
+import { useServiceWorkload } from '@/components/hooks/use-service-workload';
 import InferenceEnvironmentCard from '@/components/inference/inference-environment-card';
 import InferenceHydrationError from '@/components/inference/inference-hydration-error';
 import InferenceModelList, { ServiceModel } from '@/components/inference/inference-model-list';
@@ -33,16 +34,17 @@ import {
   SERVICE_PASSWORD_ENV,
   SERVICE_PASSWORD_RULE,
 } from '@/lib/service-password';
-import { SubsidyJobType } from '@/lib/subsidy';
+import { serviceWorkload, SubsidyJobType, SubsidyWorkload } from '@/lib/subsidy';
 import { useOceanAccount } from '@/lib/use-ocean-account';
 import { usePaySession } from '@/lib/use-pay-session';
 import { computeEscrowRequirement, usePaymentInfo } from '@/lib/use-payment-info';
-import { usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
+import { useHasSubsidy, usePayerCost, useStartWithSubsidy } from '@/lib/use-subsidy';
 import {
   buildInferenceRestartSpec,
   buildInferenceStartParams,
   gpuSelectionErrorCode,
   gpuSelectionMessage,
+  inferenceContainerSpec,
   launchPlanError,
   toNodeUri,
 } from '@/services/inference-launch';
@@ -59,6 +61,7 @@ import { rememberTemplateEnv } from '@/services/template-env-memory';
 import {
   buildTemplateRestartParams,
   buildTemplateStartParams,
+  templateContainerSpec,
   templateNeedsConfigStep,
   WORKFLOW_ENV_VAR_KEYS,
 } from '@/services/template-launch';
@@ -282,9 +285,48 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   const startWithSubsidy = useStartWithSubsidy();
   const isOpfEligible = branch === 'template';
 
+  const selectedNodeUri = useMemo(() => (selectedEnv ? toNodeUri(selectedEnv.nodeInfo) : undefined), [selectedEnv]);
+  const launchWorkload = useMemo(() => {
+    if (flowType === InferenceFlowType.Template) {
+      return selectedTemplate ? serviceWorkload(templateContainerSpec(selectedTemplate)) : null;
+    }
+    const model = selectedModels[0];
+    const params = model ? modelParamsByModel[model.id] : undefined;
+    return model && params ? serviceWorkload(inferenceContainerSpec(model, params)) : null;
+  }, [flowType, modelParamsByModel, selectedModels, selectedTemplate]);
+  const {
+    load: loadRunningWorkload,
+    needsSignature: workloadNeedsSignature,
+    workload: runningWorkload,
+  } = useServiceWorkload({
+    nodeId: selectedEnv?.nodeInfo.id,
+    nodeUri: selectedNodeUri,
+    serviceId: isProlongMode ? targetServiceId : undefined,
+  });
+  // A prolong pays for the service as it runs, a start for the selection about to launch.
+  const subsidyWorkload = isProlongMode ? runningWorkload : launchWorkload;
+  const hasSubsidy = useHasSubsidy();
+  // Until the running service is read, image-gated subsidies are left out and the price shown is the highest it can be.
+  const needsWorkloadCheck = isProlongMode && hasSubsidy && workloadNeedsSignature;
+  const [checkingWorkload, setCheckingWorkload] = useState(false);
+  const checkRunningWorkload = useCallback(async () => {
+    setCheckingWorkload(true);
+    try {
+      await loadRunningWorkload();
+    } finally {
+      setCheckingWorkload(false);
+    }
+  }, [loadRunningWorkload]);
+
   /** What the payment events record about a paid start or prolong. Quoted with the same `totalCost` the page shows. */
   const buildServicePaymentContext = useCallback(
-    (env: SelectedInferenceEnv, payer: string, action: PaymentAction, serviceId?: string): PaidStartContext => ({
+    (
+      env: SelectedInferenceEnv,
+      payer: string,
+      action: PaymentAction,
+      workload: SubsidyWorkload | null,
+      serviceId?: string
+    ): PaidStartContext => ({
       action,
       branch,
       cost: totalCost,
@@ -294,8 +336,10 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       jobType: SubsidyJobType.SERVICE,
       nodeAddress: env.environment.consumerAddress,
       nodeId: env.nodeInfo.id,
+      nodeUri: toNodeUri(env.nodeInfo),
       payer,
       serviceId,
+      workload,
     }),
     [branch, isOpfEligible, jobDurationSeconds, totalCost]
   );
@@ -305,6 +349,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     isOpfEligible,
     jobType: SubsidyJobType.SERVICE,
     nodeAddress: selectedEnv?.environment.consumerAddress,
+    nodeUri: selectedNodeUri,
+    workload: subsidyWorkload,
   });
 
   /**
@@ -329,7 +375,8 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
     return roundTokenAmount(requirement.depositAmount - walletBalance, USDC.address, 'up');
   }, [authorizations, escrowBalance, walletBalance, payerCost, escrowLockSeconds]);
-  const paymentBlocked = !isEditMode && !!selectedEnv && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
+  const paymentBlocked =
+    !isEditMode && !needsWorkloadCheck && !!selectedEnv && totalCost > 0 && (!paymentInfoReady || walletShortfall > 0);
 
   // Launch mode in the `inference_launch_clicked` vocabulary, shared with inference_payment_blocked.
   const launchMode = isProlongMode
@@ -734,8 +781,9 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // The node locks the extension cost in escrow — top up funds/authorization first if needed.
       await ensureEscrowForSelection();
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
+      const workload = await loadRunningWorkload();
       await startWithSubsidy(
-        buildServicePaymentContext(selectedEnv, account.address, 'prolong', targetServiceId),
+        buildServicePaymentContext(selectedEnv, account.address, 'prolong', workload, targetServiceId),
         (subsidyProviders) =>
           withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
             serviceExtend(
@@ -778,6 +826,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     }
   }, [
     buildServicePaymentContext,
+    loadRunningWorkload,
     startWithSubsidy,
     targetServiceId,
     selectedEnv,
@@ -969,7 +1018,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       // the current escrow state can't cover it (one bundled tx on smart accounts).
       const escrowDeposited = await ensureEscrowForSelection();
       const [job] = await startWithSubsidy(
-        buildServicePaymentContext(selectedEnv, account.address, 'start'),
+        buildServicePaymentContext(selectedEnv, account.address, 'start', serviceWorkload(startParams)),
         (subsidyProviders) =>
           withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
             serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
@@ -1105,7 +1154,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
       }
       const escrowDeposited = await ensureEscrowForSelection();
       const [job] = await startWithSubsidy(
-        buildServicePaymentContext(selectedEnv, account.address, 'start'),
+        buildServicePaymentContext(selectedEnv, account.address, 'start', serviceWorkload(startParams)),
         (subsidyProviders) =>
           withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
             serviceStart(nodeUri, token, { ...startParams, subsidyProviders })
@@ -1348,10 +1397,12 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
                       isOpfEligible={isOpfEligible}
                       loadPaymentInfo={loadPaymentInfo}
                       nodeAddress={selectedEnv?.environment.consumerAddress}
+                      nodeUri={selectedNodeUri}
                       subsidyJobType={SubsidyJobType.SERVICE}
                       topupSource="inference"
                       totalCost={totalCost}
                       walletBalance={walletBalance ?? 0}
+                      workload={subsidyWorkload}
                     />
                   )
                 ) : (
@@ -1425,20 +1476,24 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
               // Launch/extend/restart all need the wallet (auth token signature + escrow tx). When it
               // isn't connected, prompt the login modal instead of stranding the user on a dead button;
               // once connected, gate only on the P2P layer being ready.
-              nextDisabled={account.address ? !isReady || paymentBlocked || isSubsidyQuoting : false}
+              nextDisabled={
+                account.address ? !isReady || (!needsWorkloadCheck && (paymentBlocked || isSubsidyQuoting)) : false
+              }
               nextLabel={
                 !account.address
                   ? 'Connect wallet'
-                  : paymentBlocked && !paymentInfoReady && !paymentInfoError
-                    ? 'Checking balance…'
-                    : isProlongMode
-                      ? 'Pay & prolong'
-                      : isEditMode
-                        ? 'Relaunch'
-                        : 'Pay & launch'
+                  : needsWorkloadCheck
+                    ? 'Sign to check subsidy'
+                    : paymentBlocked && !paymentInfoReady && !paymentInfoError
+                      ? 'Checking balance…'
+                      : isProlongMode
+                        ? 'Pay & prolong'
+                        : isEditMode
+                          ? 'Relaunch'
+                          : 'Pay & launch'
               }
-              nextLoading={launching}
-              onNext={account.address ? goToNextStep : login}
+              nextLoading={launching || checkingWorkload}
+              onNext={!account.address ? login : needsWorkloadCheck ? checkRunningWorkload : goToNextStep}
               onPrev={goToPrevStep}
             />
           </>

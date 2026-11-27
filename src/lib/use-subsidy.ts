@@ -1,4 +1,5 @@
 import { CHAIN_ID } from '@/constants/chains';
+import { NodeUri, useP2P } from '@/contexts/P2PContext';
 import { groupLockCycles } from '@/lib/escrow-events';
 import {
   capturePaymentAccepted,
@@ -12,6 +13,7 @@ import {
   getCustomSubsidyAddresses,
   getUpfrontCost,
   isNodeSubsidized,
+  loadNodeSubsidyPolicy,
   loadSubsidyProgram,
   loadSubsidyUsage,
   quoteSubsidy,
@@ -20,6 +22,7 @@ import {
   SubsidyJobType,
   SubsidyProgram,
   SubsidyUsage,
+  SubsidyWorkload,
 } from '@/lib/subsidy';
 import { usePayerEscrowEvents } from '@/lib/use-escrow-events';
 import { useOceanAccount } from '@/lib/use-ocean-account';
@@ -177,19 +180,29 @@ export const useIsNodeSubsidized = (nodeAddress: string | undefined) => {
   });
 };
 
-export const useSubsidyQuote = ({
-  cost,
-  isOpfEligible,
-  jobType,
-  nodeAddress,
-}: {
+export type SubsidyQuoteParams = {
   cost: number;
   /** Whether the ON subsidy covers this kind of job. Custom subsidies are quoted either way. */
   isOpfEligible: boolean;
   jobType: SubsidyJobType;
   nodeAddress: string | undefined;
-}) => {
+  /** Where the node's subsidy rules are read from. */
+  nodeUri: NodeUri | undefined;
+  /** `undefined` while it loads, which holds the quote back. `null` when it can't be known. */
+  workload: SubsidyWorkload | null | undefined;
+};
+
+export const useSubsidyQuote = ({
+  cost,
+  isOpfEligible,
+  jobType,
+  nodeAddress,
+  nodeUri,
+  workload,
+}: SubsidyQuoteParams) => {
   const { account } = useOceanAccount();
+  const { isReady } = useP2P();
+  const queryClient = useQueryClient();
   const { data: program } = useSubsidyProgram();
   const { data: usage } = useSubsidyUsage();
   const { addresses: customProviders } = useActiveCustomSubsidies();
@@ -201,21 +214,36 @@ export const useSubsidyQuote = ({
       CHAIN_ID,
       account.address,
       nodeAddress?.toLowerCase(),
+      nodeUri,
       jobType,
       cost,
       !!quotedProgram,
       customProviders,
+      workload,
     ],
-    enabled: !!account.address && !!nodeAddress && (!!quotedProgram || customProviders.length > 0) && cost > 0,
+    enabled:
+      isReady &&
+      !!account.address &&
+      !!nodeAddress &&
+      !!nodeUri &&
+      workload !== undefined &&
+      (!!quotedProgram || customProviders.length > 0) &&
+      cost > 0,
     staleTime: USAGE_STALE_TIME,
-    queryFn: () =>
+    queryFn: async () =>
       quoteSubsidy({
         cost,
         customProviders,
         jobType,
         nodeAddress: nodeAddress!,
         payer: account.address!,
+        policy: await queryClient.fetchQuery({
+          queryKey: ['node-subsidy-policy', CHAIN_ID, nodeUri],
+          staleTime: USAGE_STALE_TIME,
+          queryFn: () => loadNodeSubsidyPolicy(nodeUri!),
+        }),
         program: quotedProgram,
+        workload: workload ?? null,
       }),
   });
 };
@@ -242,14 +270,15 @@ export const useSubsidyHistory = () => {
 };
 
 /** What the payer locks when the job starts: `cost` minus the prepaid part of the subsidy quote. */
-export const usePayerCost = (params: Parameters<typeof useSubsidyQuote>[0]) => {
+export const usePayerCost = (params: SubsidyQuoteParams) => {
+  const { isReady } = useP2P();
   const { isLoading: isProgramLoading } = useSubsidyProgram();
   const { isLoading: isUsageLoading } = useSubsidyUsage();
   const { isLoading: isCustomLoading } = useActiveCustomSubsidies();
   const { data: quote, isFetching } = useSubsidyQuote(params);
   const isOpfLoading = params.isOpfEligible && (isProgramLoading || isUsageLoading);
   return {
-    isQuoting: isOpfLoading || isCustomLoading || isFetching,
+    isQuoting: !isReady || params.workload === undefined || isOpfLoading || isCustomLoading || isFetching,
     payerCost: getUpfrontCost(params.cost, quote),
   };
 };
@@ -286,7 +315,9 @@ export const useStartWithSubsidy = () => {
         isOpfEligible: context.isOpfEligible,
         jobType: context.jobType,
         nodeAddress: context.nodeAddress,
+        nodeUri: context.nodeUri,
         payer: context.payer,
+        workload: context.workload,
       });
       try {
         const result = await startWithSubsidy(async () => {

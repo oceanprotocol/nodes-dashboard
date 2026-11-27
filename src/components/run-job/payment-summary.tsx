@@ -3,7 +3,8 @@ import Card from '@/components/card/card';
 import PaymentSubsidy from '@/components/run-job/payment-subsidy';
 import { BASE_CHAIN_ID, CHAIN_ID } from '@/constants/chains';
 import { USDC } from '@/constants/tokens';
-import { getUpfrontCost, SubsidyJobType } from '@/lib/subsidy';
+import type { NodeUri } from '@/contexts/P2PContext';
+import { getUpfrontCost, SubsidyJobType, SubsidyWorkload } from '@/lib/subsidy';
 import { useSubsidyQuote } from '@/lib/use-subsidy';
 import { DEFAULT_TOPUP_EUR, useCardTopup } from '@/lib/use-usdc-topup';
 import { Authorizations } from '@/types/payment';
@@ -21,10 +22,13 @@ type PaymentSummaryProps = {
   loadPaymentInfo: () => void;
   subsidyJobType: SubsidyJobType;
   nodeAddress?: string;
+  nodeUri?: NodeUri;
   /** Which payment step renders this, for the card top-up's analytics. */
   topupSource: 'run_job' | 'inference';
   totalCost: number;
   walletBalance: number;
+  /** What the job runs, for the node's subsidy rules. `undefined` while it loads, `null` when it can't be known. */
+  workload: SubsidyWorkload | null | undefined;
 };
 
 // One label/value line in the ledger below the hero. `action` renders after the value (the
@@ -65,10 +69,12 @@ const PaymentSummary = ({
   isOpfEligible,
   loadPaymentInfo,
   nodeAddress,
+  nodeUri,
   subsidyJobType,
   topupSource,
   totalCost,
   walletBalance,
+  workload,
 }: PaymentSummaryProps) => {
   // Re-reading payment info once the USDC lands clears the shortfall and unblocks the pay button.
   const { canTopup, isToppingUp, startTopup, waitingForUsdc } = useCardTopup({
@@ -81,6 +87,8 @@ const PaymentSummary = ({
     isOpfEligible,
     jobType: subsidyJobType,
     nodeAddress,
+    nodeUri,
+    workload,
   });
 
   const currentLocked = Number(authorizations?.currentLockedAmount ?? 0);
@@ -180,7 +188,9 @@ const PaymentSummary = ({
           isOpfEligible={isOpfEligible}
           jobType={subsidyJobType}
           nodeAddress={nodeAddress}
+          nodeUri={nodeUri}
           totalCost={totalCost}
+          workload={workload}
         />
 
         <SummaryRow

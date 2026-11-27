@@ -137,6 +137,21 @@ function templateMetadata(template: AppTemplate, envValues: Record<string, strin
 }
 
 /**
+ * The image and launch command a template runs with. Shared by start, restart and the subsidy quote, so the quote is
+ * checked against what is launched.
+ */
+export function templateContainerSpec(template: AppTemplate) {
+  // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
+  const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
+  return {
+    image: template.image,
+    ...imageRef,
+    ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
+    ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
+  };
+}
+
+/**
  * Build the ServiceStartParams to launch an app template on the chosen environment. Mirrors
  * buildInferenceStartParams, but sources image/tag/ports/command from the template instead of the
  * engine map, and userData from the template's env vars instead of vLLM/llama.cpp params. The env's
@@ -169,9 +184,6 @@ export async function buildTemplateStartParams({
 }): Promise<ServiceStartParams> {
   const envResources = selectedEnv.environment.resources ?? [];
 
-  // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
-  const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
-
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
   assertAllocationAvailable(envResources, allocation);
@@ -197,11 +209,8 @@ export async function buildTemplateStartParams({
 
   return {
     environment: selectedEnv.environment.id,
-    image: template.image,
-    ...imageRef,
+    ...templateContainerSpec(template),
     exposedPorts: template.exposedPorts,
-    ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
-    ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
     userData,
     ...(metadata ? { metadata } : {}),
     resources,
@@ -224,17 +233,12 @@ export async function buildTemplateRestartParams(
   template: AppTemplate,
   envValues: Record<string, string>
 ): Promise<ServiceRestartParams> {
-  // Exactly one image reference: tag or checksum (dockerfile builds are gated node-side and not offered here).
-  const imageRef = template.tag ? { tag: template.tag } : template.checksum ? { checksum: template.checksum } : {};
   const userData = await withWorkflowUserData(buildTemplateUserData(template, envValues), template.workflows);
   // Re-stamped, not reused: an Edit can relaunch onto a DIFFERENT template, and an omitted `metadata`
   // would leave the service labelled with the app it used to run.
   const metadata = templateMetadata(template, envValues);
   return {
-    image: template.image,
-    ...imageRef,
-    ...(template.command && template.command.length > 0 ? { dockerCmd: template.command } : {}),
-    ...(template.entrypoint && template.entrypoint.length > 0 ? { dockerEntrypoint: template.entrypoint } : {}),
+    ...templateContainerSpec(template),
     userData,
     ...(metadata ? { metadata } : {}),
   };

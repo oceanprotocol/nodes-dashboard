@@ -466,6 +466,20 @@ function gateEntrypoint(engine: InferenceEngine): { dockerEntrypoint?: string[] 
 }
 
 /**
+ * The image and launch command a model runs with. Shared by start, restart and the subsidy quote, so the quote is
+ * checked against what is launched.
+ */
+export function inferenceContainerSpec(model: HuggingFaceModel, params: ModelParameters) {
+  const runtime = engineRuntime(params);
+  return {
+    image: runtime.image,
+    tag: runtime.tag,
+    dockerCmd: buildEngineCommand(model, params),
+    ...gateEntrypoint(params.engine),
+  };
+}
+
+/**
  * Why a GPU selection can't be turned into a request against a freshly-read environment. Both are
  * recoverable by re-picking, but they are NOT the same thing to tell the user, and only the first is
  * about contention:
@@ -783,13 +797,9 @@ export function buildInferenceRestartSpec({
    */
   appType: ServiceAppType;
 }): ServiceRestartParams {
-  const runtime = engineRuntime(params);
   const metadata = buildServiceMetadata({ appType, appId: model.id });
   return {
-    image: runtime.image,
-    tag: runtime.tag,
-    dockerCmd: buildEngineCommand(model, params),
-    ...gateEntrypoint(params.engine),
+    ...inferenceContainerSpec(model, params),
     userData: buildUserData(hfToken, params.engine, servicePassword),
     ...(metadata ? { metadata } : {}),
   };
@@ -839,7 +849,6 @@ export function buildInferenceStartParams({
   appType: ServiceAppType;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
-  const runtime = engineRuntime(params);
 
   // Same freshly-read env the GPU ids are resolved from — so shared-resource contention is caught
   // here too, before the caller runs the escrow deposit tx.
@@ -861,11 +870,8 @@ export function buildInferenceStartParams({
 
   return {
     environment: selectedEnv.environment.id,
-    image: runtime.image,
-    tag: runtime.tag,
-    exposedPorts: [runtime.port],
-    dockerCmd: buildEngineCommand(model, params),
-    ...gateEntrypoint(params.engine),
+    ...inferenceContainerSpec(model, params),
+    exposedPorts: [engineRuntime(params).port],
     userData: buildUserData(hfToken, params.engine, servicePassword),
     ...(metadata ? { metadata } : {}),
     resources,
