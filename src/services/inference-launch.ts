@@ -4,6 +4,7 @@ import { USDC } from '@/constants/tokens';
 import { SelectedInferenceEnv } from '@/context/inference-context';
 import { isValidServicePassword, SERVICE_PASSWORD_ENV, SERVICE_PASSWORD_RULE } from '@/lib/service-password';
 import { buildModelDefaults } from '@/services/huggingface-service';
+import { withSecureTls } from '@/services/secure-tls';
 import { buildServiceMetadata, ServiceAppType } from '@/services/service-metadata';
 import { VLLM_GATE_ENTRYPOINT } from '@/services/vllm-gate';
 import { ComputeResource } from '@/types/environments';
@@ -771,11 +772,13 @@ export function buildInferenceRestartSpec({
   hfToken,
   servicePassword,
   appType,
+  secureTls,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
   hfToken: string;
   servicePassword: string;
+  secureTls: boolean;
   /**
    * Which flow this relaunch came from, so the service's labels keep describing what it now runs.
    * An omitted `metadata` reuses the stored bag, which after a model swap would name the OLD model —
@@ -785,7 +788,7 @@ export function buildInferenceRestartSpec({
 }): ServiceRestartParams {
   const runtime = engineRuntime(params);
   const metadata = buildServiceMetadata({ appType, appId: model.id });
-  return {
+  const spec = {
     image: runtime.image,
     tag: runtime.tag,
     dockerCmd: buildEngineCommand(model, params),
@@ -793,6 +796,7 @@ export function buildInferenceRestartSpec({
     userData: buildUserData(hfToken, params.engine, servicePassword),
     ...(metadata ? { metadata } : {}),
   };
+  return withSecureTls(spec, [runtime.port], secureTls);
 }
 
 /**
@@ -811,6 +815,7 @@ export function buildInferenceStartParams({
   servicePassword,
   appType,
   gpuPlan,
+  secureTls,
 }: {
   model: HuggingFaceModel;
   params: ModelParameters;
@@ -837,6 +842,7 @@ export function buildInferenceStartParams({
    * templates do, which is exactly the collision image matching can't resolve.
    */
   appType: ServiceAppType;
+  secureTls: boolean;
 }): ServiceStartParams {
   const envResources = selectedEnv.environment.resources ?? [];
   const runtime = engineRuntime(params);
@@ -859,7 +865,7 @@ export function buildInferenceStartParams({
 
   const metadata = buildServiceMetadata({ appType, appId: model.id });
 
-  return {
+  const spec = {
     environment: selectedEnv.environment.id,
     image: runtime.image,
     tag: runtime.tag,
@@ -872,4 +878,5 @@ export function buildInferenceStartParams({
     duration: durationSeconds,
     payment: { chainId: CHAIN_ID, token: USDC.address },
   };
+  return withSecureTls(spec, [runtime.port], secureTls);
 }

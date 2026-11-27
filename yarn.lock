@@ -4781,22 +4781,22 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@oceanprotocol/ddo-js@npm:^1.0.0":
-  version: 1.0.0
-  resolution: "@oceanprotocol/ddo-js@npm:1.0.0"
+"@oceanprotocol/ddo-js@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "@oceanprotocol/ddo-js@npm:1.1.0"
   dependencies:
     ethers: "npm:^6.17.0"
     jsonld: "npm:^9.0.0"
-    n3: "npm:^2.2.0"
+    n3: "npm:^2.13.12"
     rdf-literal: "npm:^2.0.0"
     rdf-validate-shacl: "npm:^0.6.5"
-  checksum: 10c0/2862470970c0615a85ad9480657b5f53aa9826afd3ca899ba4812b96c2d612034e091433a685d2af7142439fe4fa4207ba4062b3a7acde9bd66dde8fda2a0862
+  checksum: 10c0/d3e742456701b83e184b27a632c84be9737ef247bd829e4251fef9571f7157b52bff21ca08424c01864aa4d762e78654c6b0566d5f563aff3f9a8ab9efb8d744
   languageName: node
   linkType: hard
 
-"@oceanprotocol/lib@npm:10.0.0":
-  version: 10.0.0
-  resolution: "@oceanprotocol/lib@npm:10.0.0"
+"@oceanprotocol/lib@npm:11.0.0-next.1":
+  version: 11.0.0-next.1
+  resolution: "@oceanprotocol/lib@npm:11.0.0-next.1"
   dependencies:
     "@chainsafe/libp2p-noise": "npm:^17.0.0"
     "@chainsafe/libp2p-yamux": "npm:^8.0.1"
@@ -4812,10 +4812,9 @@ __metadata:
     "@libp2p/websockets": "npm:^10.1.21"
     "@multiformats/multiaddr": "npm:^13.0.3"
     "@oasisprotocol/sapphire-ethers-v6": "npm:^6.0.1"
-    "@oceanprotocol/ddo-js": "npm:^1.0.0"
+    "@oceanprotocol/ddo-js": "npm:^1.1.0"
     bignumber.js: "npm:^11.1.5"
     cross-fetch: "npm:^4.1.0"
-    crypto-js: "npm:^4.2.0"
     decimal.js: "npm:^10.6.0"
     eciesjs: "npm:^0.5.0"
     ethers: "npm:^6.17.0"
@@ -4823,7 +4822,7 @@ __metadata:
     libp2p: "npm:^3.3.10"
     multiformats: "npm:^14.0.5"
     uint8arrays: "npm:^6.1.1"
-  checksum: 10c0/85d3d4bef11a05b2f07732f46bddf9b26ad605f0615edb182f30aa283ddccc3ac8939cfc048a68149d392f5e1575a70f3858d0a869428612322b0c1fb6849d2f
+  checksum: 10c0/d6f6aa3d5573e03da5771ca35fa1b7e30703003f4cdbbeab6c275c20e5937c4da990b149a2f1d754190f3a905411bc2645aa4ef6cd44ee5516cb08e7e4ac88c7
   languageName: node
   linkType: hard
 
@@ -13481,7 +13480,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"crypto-js@npm:^4.1.1, crypto-js@npm:^4.2.0":
+"crypto-js@npm:^4.1.1":
   version: 4.2.0
   resolution: "crypto-js@npm:4.2.0"
   checksum: 10c0/8fbdf9d56f47aea0794ab87b0eb9833baf80b01a7c5c1b0edc7faf25f662fb69ab18dc2199e2afcac54670ff0cd9607a9045a3f7a80336cccd18d77a55b9fdf0
@@ -18024,13 +18023,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"n3@npm:^2.2.0":
-  version: 2.6.0
-  resolution: "n3@npm:2.6.0"
+"n3@npm:^2.13.12":
+  version: 2.13.12
+  resolution: "n3@npm:2.13.12"
   dependencies:
     buffer: "npm:^6.0.3"
     readable-stream: "npm:^4.0.0"
-  checksum: 10c0/b8f25963941f29400c40a58f30cf7127b1f01855c4b4c412b8eabac7dc1501bac40e67b56bfbeb8ba74a7ee97b30da97d024023b47c2ffafb5166b637d06e226
+  checksum: 10c0/d852f15f93055998e11e144238df9e7050dad05f8ac4de06d4fd65b316d32bc5881d7ddd0ecc7c8c7d2e30cf08a2d38d31e4b6c173be32847a5de65925ccf1be
   languageName: node
   linkType: hard
 
@@ -18493,7 +18492,7 @@ __metadata:
     "@mui/x-data-grid": "npm:^8.14.1"
     "@multiformats/multiaddr": "npm:^13.0.1"
     "@oceanprotocol/contracts": "npm:3.2.0"
-    "@oceanprotocol/lib": "npm:10.0.0"
+    "@oceanprotocol/lib": "npm:11.0.0-next.1"
     "@privy-io/alchemy-migration": "npm:^0.0.5"
     "@privy-io/react-auth": "npm:^3.51.0"
     "@ramp-network/ramp-instant-sdk": "npm:^6.2.0"

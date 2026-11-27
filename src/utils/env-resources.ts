@@ -65,6 +65,11 @@ export function supportsComputeJobs(environment: ComputeEnvironment): boolean {
   return environment.features?.computeJobs !== false;
 }
 
+/** Default false: only a node that reports `features.secureTls: true` serves https. */
+export function supportsSecureTls(environment?: ComputeEnvironment): boolean {
+  return environment?.features?.secureTls === true;
+}
+
 export function isGpuRequirement(requirement: TemplateResourceRequirement): requirement is GpuResourceRequirement {
   return 'type' in requirement && requirement.type === 'gpu';
 }

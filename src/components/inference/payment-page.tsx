@@ -64,7 +64,7 @@ import {
 } from '@/services/template-launch';
 import { InferenceFlowType } from '@/types/inference';
 import { requiredEnvVars } from '@/types/templates';
-import { demandOf, GpuDemand, planGpuCount } from '@/utils/env-resources';
+import { demandOf, GpuDemand, planGpuCount, supportsSecureTls } from '@/utils/env-resources';
 import { formatDuration, roundTokenAmount } from '@/utils/formatters';
 import { serviceDurationBounds } from '@/utils/service-duration';
 import { CircularProgress } from '@mui/material';
@@ -828,7 +828,14 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           nodeUri,
           token,
           targetServiceId,
-          buildInferenceRestartSpec({ model, params, hfToken, servicePassword, appType })
+          buildInferenceRestartSpec({
+            model,
+            params,
+            hfToken,
+            servicePassword,
+            appType,
+            secureTls: supportsSecureTls(environment),
+          })
         )
       );
       if (!job?.serviceId) {
@@ -863,6 +870,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     openLaunchedService,
     branch,
     appType,
+    environment,
   ]);
 
   // Launch the service for real: single model on a vLLM instance. Escrow is prepared client-side
@@ -958,6 +966,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           hfToken,
           servicePassword,
           appType,
+          secureTls: supportsSecureTls(launchEnv.environment),
         });
       } catch (error) {
         if (reportGpuSelectionFailure(error)) {
@@ -1095,6 +1104,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
           durationSeconds: jobDurationSeconds,
           envValues: templateEnvValues,
           bucketId: selectedBucketId ?? undefined,
+          secureTls: supportsSecureTls(launchEnv.environment),
         });
       } catch (buildError) {
         if (reportGpuSelectionFailure(buildError)) {
@@ -1186,7 +1196,11 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     setLaunchError(null);
     try {
       const nodeUri = toNodeUri(selectedEnv.nodeInfo);
-      const restartParams = await buildTemplateRestartParams(selectedTemplate, templateEnvValues);
+      const restartParams = await buildTemplateRestartParams(
+        selectedTemplate,
+        templateEnvValues,
+        supportsSecureTls(environment)
+      );
       const [job] = await withNodeAuth(selectedEnv.nodeInfo.id, nodeUri, (token) =>
         serviceRestart(nodeUri, token, targetServiceId, restartParams)
       );
@@ -1219,6 +1233,7 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
     serviceRestart,
     openLaunchedService,
     branch,
+    environment,
   ]);
 
   const goToNextStep = useCallback(async () => {
