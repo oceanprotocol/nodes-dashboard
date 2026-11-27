@@ -124,6 +124,10 @@
   .tile .media {
     transition: none;
   }
+
+  .player.playing span {
+    animation: none;
+  }
 }
 
 /* Above the tile's link, so it stays clickable on a linked tile. */
@@ -132,4 +136,40 @@
   position: absolute;
   right: 10px;
   z-index: 3;
+}
+
+.player {
+  align-items: center;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent1) 24%, transparent),
+    color-mix(in srgb, var(--accent2) 24%, transparent)
+  );
+  display: flex;
+  gap: 2%;
+  justify-content: center;
+  padding: 0 14%;
+
+  span {
+    background: linear-gradient(to top, var(--accent1), var(--accent2));
+    border-radius: 100px;
+    flex: 1;
+    height: calc(var(--bar) * 56%);
+    transform: scaleY(0.4);
+    transition: transform 0.4s ease;
+  }
+
+  &.playing span {
+    animation: player-bar 0.9s ease-in-out var(--delay) infinite alternate;
+  }
+}
+
+@keyframes player-bar {
+  from {
+    transform: scaleY(0.3);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
 }

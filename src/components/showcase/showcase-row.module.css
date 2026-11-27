@@ -19,7 +19,8 @@
     --radius: 12px;
   }
 
-  &:focus-within .track {
+  &:focus-within .track,
+  &.rowListening .track {
     animation-play-state: paused;
   }
 

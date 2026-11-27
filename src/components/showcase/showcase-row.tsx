@@ -1,7 +1,7 @@
 import { showcaseSourceHref } from '@/services/showcase';
 import { ShowcaseItem } from '@/types/showcase';
 import classNames from 'classnames';
-import { CSSProperties } from 'react';
+import { CSSProperties, useState } from 'react';
 import styles from './showcase-row.module.css';
 import ShowcaseTile, { ratioOf } from './showcase-tile';
 
@@ -51,38 +51,43 @@ type ShowcaseRowProps = {
  * copy, so the loop is seamless; the second copy is hidden from assistive tech. Tiles take the row's
  * full height, which the parent decides.
  */
-const ShowcaseRow = ({ chips = true, className, index, row }: ShowcaseRowProps) => (
-  <div
-    className={classNames(styles.row, row.reverse && styles.rowReverse, className)}
-    style={
-      {
-        '--duration': `${row.duration.toFixed(1)}s`,
-        '--enter-delay': `${index * ENTER_STAGGER_MS}ms`,
-      } as CSSProperties
-    }
-  >
-    <div className={styles.track}>
-      {[false, true].map((clone) => (
-        <div
-          aria-hidden={clone || undefined}
-          className={classNames(styles.group, clone && styles.groupClone)}
-          key={String(clone)}
-        >
-          {row.tiles.map((item, tileIndex) => (
-            <ShowcaseTile
-              chip={chips}
-              href={chips ? showcaseSourceHref(item.source) : undefined}
-              inert={clone}
-              item={item}
-              key={`${item.id}-${tileIndex}`}
-            />
-          ))}
-        </div>
-      ))}
+const ShowcaseRow = ({ chips = true, className, index, row }: ShowcaseRowProps) => {
+  const [listening, setListening] = useState(false);
+
+  return (
+    <div
+      className={classNames(styles.row, row.reverse && styles.rowReverse, listening && styles.rowListening, className)}
+      style={
+        {
+          '--duration': `${row.duration.toFixed(1)}s`,
+          '--enter-delay': `${index * ENTER_STAGGER_MS}ms`,
+        } as CSSProperties
+      }
+    >
+      <div className={styles.track}>
+        {[false, true].map((clone) => (
+          <div
+            aria-hidden={clone || undefined}
+            className={classNames(styles.group, clone && styles.groupClone)}
+            key={String(clone)}
+          >
+            {row.tiles.map((item, tileIndex) => (
+              <ShowcaseTile
+                chip={chips}
+                href={chips ? showcaseSourceHref(item.source) : undefined}
+                inert={clone}
+                item={item}
+                key={`${item.id}-${tileIndex}`}
+                onListeningChange={clone ? undefined : setListening}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <span aria-hidden className={classNames(styles.denoise, styles.denoiseStart)} />
+      <span aria-hidden className={styles.denoise} />
     </div>
-    <span aria-hidden className={classNames(styles.denoise, styles.denoiseStart)} />
-    <span aria-hidden className={styles.denoise} />
-  </div>
-);
+  );
+};
 
 export default ShowcaseRow;

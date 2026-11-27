@@ -14,7 +14,8 @@ export type ShowcaseSource = {
 export type ShowcaseEntry = {
   /** Unique slug; also the media's filename stem in `public/showcase/`. */
   id: string;
-  type: 'image' | 'video';
+  /** `audio` has no picture: it shows as a player card at the given size, played from a Listen button. */
+  type: 'image' | 'video' | 'audio';
   /** Filename in `public/showcase/`. */
   file: string;
   /** Still shown before a video has loaded a frame, filename in `public/showcase/`. */
@@ -30,7 +31,7 @@ export type ShowcaseEntry = {
   prompt?: string;
 };
 
-/** One generated image or video shown as an example of what a template, service or package makes. */
+/** One generated image, video or track shown as an example of what a template, service or package makes. */
 export type ShowcaseItem = Omit<ShowcaseEntry, 'file' | 'poster'> & {
   src: string;
   poster?: string;
