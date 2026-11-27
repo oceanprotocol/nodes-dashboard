@@ -78,6 +78,15 @@ const useSound = <T extends HTMLMediaElement>(onSoundChange?: (soundOn: boolean)
     onSoundChangeRef.current?.(soundOn);
   }, [soundOn]);
 
+  useEffect(() => {
+    const media = mediaRef.current;
+    return () => {
+      if (audibleMedia === media) {
+        audibleMedia = null;
+      }
+    };
+  }, []);
+
   const sync = () => {
     const media = mediaRef.current;
     setSoundOn(!!media && !media.paused && !media.muted);
