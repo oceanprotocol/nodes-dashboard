@@ -68,6 +68,21 @@ const nextConfig = {
         source: '/sw.js',
         headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }],
       },
+      {
+        // Kept apart from the nonce policy in src/proxy.ts because none of these can break a
+        // third-party script, so they can be enforced now while that policy is still Report-Only.
+        source: '/:path*',
+        headers: [
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          // Turns off only features the app never uses; camera and USB/HID stay allowed because Ramp's
+          // KYC and Ledger need them.
+          { key: 'Permissions-Policy', value: 'geolocation=(), browsing-topics=()' },
+        ],
+      },
     ];
   },
   env: {

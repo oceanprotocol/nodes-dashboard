@@ -98,12 +98,13 @@ Create a `.env.local` file from [`.env.example`](.env.example) (or configure you
 
 ### App
 
-| Variable                            | Description                                                                                                                                                                                     |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_APP_ENV`               | `"production"` selects Base mainnet and production backends. Any other value (e.g. `"development"`) selects Ethereum Sepolia and dev backends.                                                  |
-| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS` | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia.           |
-| `NEXT_PUBLIC_OUTAGE_BANNER_ENABLED` | Optional. Set to `"true"` to show the outage banner on every page.                                                                                                                              |
-| `NEXT_PUBLIC_OUTAGE_BANNER_MESSAGE` | Optional. Banner text. Supports headings (`#`, `##`, `###` at line start), `**bold**`, `*italic*`, `` `code` ``, `[link](https://...)` and line breaks (`\n`). Raw HTML is shown as plain text. |
+| Variable                            | Description                                                                                                                                                                                          |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_APP_ENV`               | `"production"` selects Base mainnet and production backends. Any other value (e.g. `"development"`) selects Ethereum Sepolia and dev backends.                                                       |
+| `NEXT_PUBLIC_LEGACY_ESCROW_ADDRESS` | Optional. Address of the previous Escrow deployment on Base. When set, the escrow page shows a contract selector so users can view and withdraw funds left in it. Ignored on Sepolia.                |
+| `NEXT_PUBLIC_OUTAGE_BANNER_ENABLED` | Optional. Set to `"true"` to show the outage banner on every page.                                                                                                                                   |
+| `NEXT_PUBLIC_OUTAGE_BANNER_MESSAGE` | Optional. Banner text. Supports headings (`#`, `##`, `###` at line start), `**bold**`, `*italic*`, `` `code` ``, `[link](https://...)` and line breaks (`\n`). Raw HTML is shown as plain text.      |
+| `CSP_MODE`                          | Optional. Mode of the nonce-based Content Security Policy set by `src/proxy.ts`: `report-only` (default) only reports violations to `/api/csp-report`, `enforce` blocks them, `off` sends no policy. |
 
 ### Auth & Wallets
 
