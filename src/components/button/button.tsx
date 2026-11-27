@@ -30,6 +30,7 @@ export type ButtonProps = {
   onClick?: MouseEventHandler<HTMLButtonElement | HTMLAnchorElement>;
   target?: '_blank' | '_self';
   size?: 'link' | 'xs' | 'sm' | 'sm-const' | 'md' | 'md-const' | 'lg' | 'lg-const';
+  tabIndex?: number;
   type?: 'button' | 'submit' | 'reset';
   variant?: 'filled' | 'glass' | 'outlined' | 'transparent';
 };
@@ -56,6 +57,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       onClick,
       target,
       size = 'md',
+      tabIndex,
       type = 'button',
       variant = 'filled',
     },
@@ -103,6 +105,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           href={isDisabled ? '' : href}
           id={id}
           onClick={onClick}
+          tabIndex={tabIndex}
           target={target}
         >
           {spinner}
@@ -126,6 +129,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         id={id}
         onClick={handleClick}
         ref={ref}
+        tabIndex={tabIndex}
         type={type}
       >
         {spinner}

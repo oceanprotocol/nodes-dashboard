@@ -177,7 +177,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
   const [focused, setFocused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [videoEndedStep, setVideoEndedStep] = useState<number | null>(null);
-  const [soundOn, setSoundOn] = useState(false);
+  const [soundItemId, setSoundItemId] = useState<string | null>(null);
 
   useEffect(() => {
     setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -192,9 +192,8 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
     return () => observer.disconnect();
   }, []);
 
-  const paused = hovered || focused || reducedMotion || soundOn;
-
   const frontItem = items.length > 0 ? items[((step % items.length) + items.length) % items.length] : null;
+  const paused = hovered || focused || reducedMotion || (!!frontItem && soundItemId === frontItem.id);
   const frontIsVideo = frontItem?.type === 'video';
   const waitingOnVideo = frontIsVideo && videoEndedStep !== step;
 
@@ -348,7 +347,9 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
                 href={relative === 0 ? showcaseSourceHref(item.source) : undefined}
                 inert={!visible}
                 item={item}
-                onSoundChange={relative === 0 ? setSoundOn : undefined}
+                onSoundChange={(soundOn) =>
+                  setSoundItemId((current) => (soundOn ? item.id : current === item.id ? null : current))
+                }
                 onVideoEnded={
                   items.length > 1
                     ? () => {

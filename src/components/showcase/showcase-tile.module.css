@@ -120,16 +120,6 @@
   overflow-wrap: anywhere;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .tile .media {
-    transition: none;
-  }
-
-  .player.playing span {
-    animation: none;
-  }
-}
-
 /* Above the tile's link, so it stays clickable on a linked tile. */
 .sound {
   bottom: 10px;
@@ -171,5 +161,15 @@
 
   to {
     transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile .media {
+    transition: none;
+  }
+
+  .player.playing span {
+    animation: none;
   }
 }

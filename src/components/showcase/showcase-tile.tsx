@@ -107,7 +107,7 @@ const useSound = <T extends HTMLMediaElement>(onSoundChange?: (soundOn: boolean)
   return { mediaProps, mediaRef, soundOn, toggle };
 };
 
-const SoundButton = ({ onClick, soundOn }: { onClick: () => void; soundOn: boolean }) => (
+const SoundButton = ({ inert, onClick, soundOn }: { inert?: boolean; onClick: () => void; soundOn: boolean }) => (
   <Button
     aria-label={soundOn ? 'Turn sound off' : 'Turn sound on'}
     aria-pressed={soundOn}
@@ -115,6 +115,7 @@ const SoundButton = ({ onClick, soundOn }: { onClick: () => void; soundOn: boole
     color="primary-inverse"
     onClick={onClick}
     size="md-const"
+    tabIndex={inert ? -1 : undefined}
     variant="glass"
   >
     {soundOn ? <VolumeUpRoundedIcon fontSize="small" /> : <VolumeOffRoundedIcon fontSize="small" />}
@@ -133,6 +134,7 @@ const SoundButton = ({ onClick, soundOn }: { onClick: () => void; soundOn: boole
 const ShowcaseVideo = ({
   active,
   eager,
+  inert,
   onEnded,
   onSoundChange,
   poster,
@@ -141,6 +143,7 @@ const ShowcaseVideo = ({
 }: {
   active: boolean;
   eager?: boolean;
+  inert?: boolean;
   onEnded?: () => void;
   onSoundChange?: (soundOn: boolean) => void;
   poster?: string;
@@ -197,7 +200,7 @@ const ShowcaseVideo = ({
         src={src.includes('#') ? src : `${src}#t=0.001`}
         {...mediaProps}
       />
-      {active && !silent && <SoundButton onClick={toggle} soundOn={soundOn} />}
+      {active && !silent && <SoundButton inert={inert} onClick={toggle} soundOn={soundOn} />}
     </>
   );
 };
@@ -210,10 +213,12 @@ const PLAYER_BARS = [0.35, 0.6, 0.85, 0.5, 0.95, 0.7, 0.4, 0.8, 1, 0.65, 0.45, 0
  */
 const ShowcaseAudio = ({
   active,
+  inert,
   onSoundChange,
   src,
 }: {
   active: boolean;
+  inert?: boolean;
   onSoundChange?: (soundOn: boolean) => void;
   src: string;
 }) => {
@@ -249,7 +254,7 @@ const ShowcaseAudio = ({
         ))}
       </div>
       <audio preload="none" ref={mediaRef} src={src} {...mediaProps} />
-      {active && <SoundButton onClick={toggle} soundOn={soundOn} />}
+      {active && <SoundButton inert={inert} onClick={toggle} soundOn={soundOn} />}
     </>
   );
 };
@@ -297,11 +302,12 @@ const ShowcaseTile = ({
   return (
     <figure className={classNames(styles.tile, className)} style={{ '--ratio': ratio, ...style } as CSSProperties}>
       {item.type === 'audio' ? (
-        <ShowcaseAudio active={active} onSoundChange={onSoundChange} src={item.src} />
+        <ShowcaseAudio active={active} inert={inert} onSoundChange={onSoundChange} src={item.src} />
       ) : item.type === 'video' ? (
         <ShowcaseVideo
           active={active}
           eager={eager}
+          inert={inert}
           onEnded={onVideoEnded}
           onSoundChange={onSoundChange}
           poster={item.poster}
