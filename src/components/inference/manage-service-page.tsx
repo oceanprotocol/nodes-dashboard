@@ -1073,7 +1073,7 @@ const ManageServicePage: React.FC = () => {
     if (!canProlong) {
       // Close the modal too — the error renders in the page header, hidden behind an open modal.
       setProlongOpen(false);
-      setJobError(prolongDisabledReason);
+      setJobError(prolongDisabledReason ?? 'This service can no longer be extended.');
       return;
     }
     setProlongOpen(false);
@@ -1168,6 +1168,7 @@ const ManageServicePage: React.FC = () => {
                     aria-label={restartDisabledReason ?? undefined}
                   >
                     <Button
+                      className={cx({ [styles.disabledAction]: !canRestart || actionLoading !== null })}
                       color="accent1"
                       contentBefore={<RestartAltIcon />}
                       disabled={!canRestart || actionLoading !== null}
@@ -1189,6 +1190,7 @@ const ManageServicePage: React.FC = () => {
                     aria-label={editDisabledReason ?? undefined}
                   >
                     <Button
+                      className={cx({ [styles.disabledAction]: !canEdit })}
                       color="accent1"
                       contentBefore={<EditOutlinedIcon />}
                       disabled={!canEdit}
@@ -1210,6 +1212,7 @@ const ManageServicePage: React.FC = () => {
                     aria-label={prolongDisabledReason ?? undefined}
                   >
                     <Button
+                      className={cx({ [styles.disabledAction]: !canProlong })}
                       color="accent1"
                       contentBefore={<BoltOutlinedIcon />}
                       disabled={!canProlong}
