@@ -262,3 +262,7 @@
   overflow-wrap: anywhere;
   overflow-x: auto;
 }
+
+.disabledAction {
+  pointer-events: none;
+}

@@ -178,12 +178,15 @@ const PaymentPage: React.FC<{ flowType: InferenceFlowType }> = ({ flowType }) =>
   /**
    * The exact GPU ids picked and the per-minute price they were quoted at — what a fresh launch prices,
    * re-validates at the click and sends. URL first, like the selection; a URL whose `gpus` names a
-   * selection without a plan carries none (never borrow another pick's ids). Edit / prolong reuse what
-   * the running service holds, so they never use one.
+   * selection without a plan carries none (never borrow another pick's ids). A prolong prices the ids
+   * the running service holds, which only the URL carries; an edit charges nothing and uses none.
    */
   const gpuPlan = useMemo(() => {
-    if (isEditMode || isProlongMode) {
+    if (isEditMode) {
       return undefined;
+    }
+    if (isProlongMode) {
+      return decodeGpuPlan(router.query.plan);
     }
     return decodeGpuPlan(router.query.plan) ?? (router.query.gpus ? undefined : selectedEnv?.gpuPlan);
   }, [isEditMode, isProlongMode, router.query.plan, router.query.gpus, selectedEnv?.gpuPlan]);

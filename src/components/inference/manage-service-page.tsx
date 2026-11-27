@@ -55,6 +55,7 @@ import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
 import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/service-readiness';
 import { includedRepoId, isBundle, isCurated } from '@/types/templates';
+import { gpuFeesOf, GpuPlan, gpuPriceOf } from '@/utils/env-resources';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
 import { serviceDurationBounds } from '@/utils/service-duration';
@@ -62,7 +63,7 @@ import BoltOutlinedIcon from '@mui/icons-material/BoltOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import { CircularProgress } from '@mui/material';
+import { CircularProgress, Tooltip } from '@mui/material';
 import { ServiceJob, ServiceStatusNumber } from '@oceanprotocol/lib';
 import cx from 'classnames';
 import { useParams } from 'next/navigation';
@@ -150,6 +151,9 @@ const LOCK_RECHECK_MS = 60000;
 // `sizing`'s ram/disk are GB (decimal-named, binary-sized to match formatBytes' 1024 base) — convert
 // to bytes for the resource usage card's booked-allocation fallback.
 const GIB = 1024 ** 3;
+
+const UNPRICED_GPU_MESSAGE =
+  'This environment no longer offers a GPU this service holds, so the extension cannot be priced.';
 
 /**
  * Statuses that stop the poll loop — genuinely final states. `Running` is deliberately NOT here: a
@@ -537,6 +541,16 @@ const ManageServicePage: React.FC = () => {
     () => (job && environment ? parseServiceResources(environment.resources ?? [], job.resources) : null),
     [job, environment]
   );
+  const bookedGpuPlan = useMemo<GpuPlan | undefined>(() => {
+    if (!bookedResources || !environment || bookedResources.unpricedGpuIds.length > 0) {
+      return undefined;
+    }
+    return {
+      requests: bookedResources.gpuRequests,
+      gpuPrice: gpuPriceOf(bookedResources.gpuRequests, gpuFeesOf(environment)),
+    };
+  }, [bookedResources, environment]);
+  const hasUnpricedGpu = !!bookedResources && bookedResources.unpricedGpuIds.length > 0;
   const gpuSelection = bookedResources?.gpuSelection ?? selectedEnv?.gpuSelection;
   const sizing = bookedResources?.sizing ?? selectedEnv?.sizing;
 
@@ -937,7 +951,39 @@ const ManageServicePage: React.FC = () => {
   // model one, and picking that branch before the match settles sends a template service to the model
   // picker instead of to payment.
   const canProlong =
-    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!bookedResources && !heldLock;
+    !!job && templateKnown && !isExpired && !isProlongBlocked(job.status) && !!bookedGpuPlan && !heldLock;
+  const identityReason = templateMatchFailed
+    ? "Couldn't load this service's app details. Reload to try again."
+    : templateVariantUnknown
+      ? "Couldn't identify which app this service is running."
+      : 'Loading service details. Try again in a moment.';
+  const actionBlockedReason = isExpired
+    ? 'This service has expired.'
+    : isUnpaid
+      ? 'This service’s payment was never claimed (unpaid or refunded), so it can’t be restarted or edited. Start a new service instead.'
+      : restartBlocked
+        ? `Service is ${status.label.toLowerCase()}. Restart and Edit become available once the node finishes this operation.`
+        : null;
+  const restartDisabledReason = !job || canRestart ? null : actionBlockedReason;
+  const editDisabledReason =
+    !job || canEdit
+      ? null
+      : (actionBlockedReason ??
+        (!templateKnown
+          ? identityReason
+          : isBundleService && !bundleHasConfig
+            ? 'This app has no settings to edit.'
+            : 'This service can no longer be edited.'));
+  const prolongDisabledReason =
+    !job || canProlong
+      ? null
+      : !templateKnown
+        ? identityReason
+        : heldLock
+          ? serviceEscrowLockMessage(heldLock)
+          : hasUnpricedGpu
+            ? UNPRICED_GPU_MESSAGE
+            : 'This service can no longer be extended.';
   const baseUrl = serviceBaseUrl(job);
   const docsUrl = serviceDocsUrl(job, baseUrl);
   // A curated model answers only to its served name, which is known only from its launch flags.
@@ -1052,13 +1098,7 @@ const ManageServicePage: React.FC = () => {
     if (!canProlong) {
       // Close the modal too — the error renders in the page header, hidden behind an open modal.
       setProlongOpen(false);
-      setJobError(
-        !templateKnown
-          ? 'Loading service details. Try again in a moment.'
-          : heldLock
-            ? serviceEscrowLockMessage(heldLock)
-            : 'This service can no longer be extended.'
-      );
+      setJobError(prolongDisabledReason ?? 'This service can no longer be extended.');
       return;
     }
     setProlongOpen(false);
@@ -1066,7 +1106,7 @@ const ManageServicePage: React.FC = () => {
     // into context (query keeps it for a hard reload).
     setJobDurationSeconds(extraSeconds);
     const query = {
-      ...buildSelectionQuery(selectionOverrides),
+      ...buildSelectionQuery({ ...selectionOverrides, gpuPlan: bookedGpuPlan }),
       duration: String(extraSeconds),
       prolong: '1',
       serviceId: id,
@@ -1129,19 +1169,6 @@ const ManageServicePage: React.FC = () => {
 
             {jobError && <div className="textAccent1">{jobError}</div>}
 
-            {/* Say WHY Restart/Edit are greyed out — a disabled button with no reason reads as a broken
-                page. The status case clears itself on the next poll; unpaid never does. */}
-            {job && !isExpired && (restartBlocked || isUnpaid) && (
-              <div className="textSecondary">
-                {isUnpaid
-                  ? 'This service’s payment was never claimed (unpaid or refunded), so it can’t be restarted or edited. Start a new service instead.'
-                  : `Service is ${status.label.toLowerCase()}. Restart and Edit become available once the node finishes this operation.`}
-              </div>
-            )}
-
-            {/* Say why Prolong is greyed out while the node holds an earlier top-up for this service. */}
-            {job && !isExpired && heldLock && <div className="textSecondary">{serviceEscrowLockMessage(heldLock)}</div>}
-
             {/* Countdown tracks the PAID window, not the container's health — a crashed (Error/Stopped)
                 service still holds its slot until expiresAt, and Restart/Prolong stay available until
                 then, so keep the bar up alongside the status chip. Only hidden once actually expired. */}
@@ -1159,46 +1186,73 @@ const ManageServicePage: React.FC = () => {
 
             <div className="actionsGroupMdBetween">
               <div className="actionsGroupMdEnd">
-                <Button
-                  color="accent1"
-                  contentBefore={<RestartAltIcon />}
-                  disabled={!canRestart || actionLoading !== null}
-                  loading={actionLoading === 'restart'}
-                  onClick={() => runServiceAction('restart')}
-                  size="md"
-                  variant="outlined"
-                >
-                  Restart
-                </Button>
+                <Tooltip title={restartDisabledReason ?? ''}>
+                  <span
+                    className="flexColumn"
+                    tabIndex={restartDisabledReason ? 0 : undefined}
+                    aria-label={restartDisabledReason ?? undefined}
+                  >
+                    <Button
+                      className={cx({ [styles.disabledAction]: !canRestart || actionLoading !== null })}
+                      color="accent1"
+                      contentBefore={<RestartAltIcon />}
+                      disabled={!canRestart || actionLoading !== null}
+                      loading={actionLoading === 'restart'}
+                      onClick={() => runServiceAction('restart')}
+                      size="md"
+                      variant="outlined"
+                    >
+                      Restart
+                    </Button>
+                  </span>
+                </Tooltip>
               </div>
               <div className="actionsGroupMdEnd">
-                <Button
-                  color="accent1"
-                  contentBefore={<EditOutlinedIcon />}
-                  disabled={!canEdit}
-                  // Both actions branch on the template match; until it settles they'd re-enter the
-                  // wrong flow, so show them working rather than inexplicably dead.
-                  loading={!!job && !templateKnown && !templateMatchFailed && !templateVariantUnknown}
-                  onClick={onEdit}
-                  size="md"
-                  variant="outlined"
-                >
-                  Edit
-                </Button>
-                <Button
-                  color="accent1"
-                  contentBefore={<BoltOutlinedIcon />}
-                  disabled={!canProlong}
-                  loading={!!job && !templateKnown && !templateMatchFailed && !templateVariantUnknown}
-                  onClick={() => {
-                    posthog.capture('inference_prolong_opened', { serviceId: id, canProlong, branch });
-                    setProlongOpen(true);
-                  }}
-                  size="md"
-                  variant="filled"
-                >
-                  Prolong session
-                </Button>
+                <Tooltip title={editDisabledReason ?? ''}>
+                  <span
+                    className="flexColumn"
+                    tabIndex={editDisabledReason ? 0 : undefined}
+                    aria-label={editDisabledReason ?? undefined}
+                  >
+                    <Button
+                      className={cx({ [styles.disabledAction]: !canEdit })}
+                      color="accent1"
+                      contentBefore={<EditOutlinedIcon />}
+                      disabled={!canEdit}
+                      // Both actions branch on the template match; until it settles they'd re-enter the
+                      // wrong flow, so show them working rather than inexplicably dead.
+                      loading={!!job && !templateKnown && !templateMatchFailed && !templateVariantUnknown}
+                      onClick={onEdit}
+                      size="md"
+                      variant="outlined"
+                    >
+                      Edit
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Tooltip title={prolongDisabledReason ?? ''}>
+                  <span
+                    className="flexColumn"
+                    tabIndex={prolongDisabledReason ? 0 : undefined}
+                    aria-label={prolongDisabledReason ?? undefined}
+                  >
+                    <Button
+                      className={cx({ [styles.disabledAction]: !canProlong })}
+                      color="accent1"
+                      contentBefore={<BoltOutlinedIcon />}
+                      disabled={!canProlong}
+                      loading={!!job && !templateKnown && !templateMatchFailed && !templateVariantUnknown}
+                      onClick={() => {
+                        posthog.capture('inference_prolong_opened', { serviceId: id, canProlong, branch });
+                        setProlongOpen(true);
+                      }}
+                      size="md"
+                      variant="filled"
+                    >
+                      Prolong session
+                    </Button>
+                  </span>
+                </Tooltip>
               </div>
             </div>
             {/* Edit and Prolong both branch on which template this service runs, and the catalogue
@@ -1257,6 +1311,7 @@ const ManageServicePage: React.FC = () => {
                 <InferenceEnvironmentCard
                   durationSeconds={durationTotalSeconds}
                   environment={environment}
+                  gpuRequests={bookedResources?.gpuRequests}
                   gpuSelection={gpuSelection}
                   nodeInfo={nodeInfo}
                   sizing={sizing}
