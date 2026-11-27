@@ -94,6 +94,14 @@ export function isServiceInFlight(status: ServiceStatusNumber | undefined, statu
 }
 
 /**
+ * Tells a final log from a snapshot. In a final state (stopped, expired, errored, or a failed image
+ * pull/build) nothing is left running, so the node's logs for the service can no longer grow.
+ */
+export function isServiceTerminal(status: ServiceStatusNumber | undefined): boolean {
+  return status !== undefined && (FAILED_STATUSES.has(status) || DONE_STATUSES.has(status));
+}
+
+/**
  * Statuses under which the node REFUSES a SERVICE_RESTART (which is also how an Edit relaunches:
  * serviceRestart + a new dockerCmd). Mirrors ocean-node:
  *

@@ -5,6 +5,14 @@
   gap: 12px;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .statusPill {
   display: inline-flex;
   align-items: center;

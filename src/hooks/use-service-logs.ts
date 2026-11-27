@@ -187,7 +187,9 @@ export function useServiceLogs({
             const text = await getServiceLogs(nodeUri, token, serviceId);
             if (!cancelled()) {
               const cleaned = cleanLogText(text);
-              setLines(cleaned ? cleaned.split('\n') : ['No logs available for this service.']);
+              // Same tail as the live view: the logs the node saved for a finished service can run to
+              // several MiB, far more lines than the panel can render, and Download has all of it.
+              setLines(cleaned ? cleaned.split('\n').slice(-MAX_LINES) : ['No logs available for this service.']);
               setStatus('ended');
             }
           } catch (e) {
