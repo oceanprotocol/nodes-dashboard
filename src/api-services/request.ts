@@ -6,10 +6,11 @@ export const isWalletAddress = (value: unknown): value is string =>
   typeof value === 'string' && ethers.isAddress(value);
 
 /** Responds 405 and returns `false` for any other method. */
-export const allowMethod = (request: NextApiRequest, response: NextApiResponse, method: 'GET' | 'POST') => {
-  if (request.method === method) {
+export const allowMethod = (request: NextApiRequest, response: NextApiResponse, ...methods: Array<'GET' | 'POST'>) => {
+  if (methods.some((method) => method === request.method)) {
     return true;
   }
+  response.setHeader('Allow', methods.join(', '));
   response.status(405).json({ message: 'Method not allowed' });
   return false;
 };

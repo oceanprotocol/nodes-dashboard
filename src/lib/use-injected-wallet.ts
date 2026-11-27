@@ -1,6 +1,6 @@
 import { BASE_CHAIN_ID, CHAIN_ID, ETH_SEPOLIA_CHAIN_ID } from '@/constants/chains';
 import { getAddress } from 'ethers';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Native (EOA) wallet connection, independent of Privy: EIP-6963 discovery + EIP-1193 calls.
@@ -105,9 +105,10 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
   // which it never was. AuthRequiredPage waits for a click instead.
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | undefined>();
-  // Separate from `error` because it is toasted: it happens with every modal closed, whereas
+  // Separate from `error` because it is toasted: it happens outside the login page, whereas
   // connect errors already render inline in the wallet list.
   const [chainError, setChainError] = useState<string | undefined>();
+  const generationRef = useRef(0);
 
   // EIP-6963 discovery. Keyed by rdns: StrictMode double-invokes this in dev and every
   // compliant wallet answers each requestProvider dispatch.
@@ -206,19 +207,25 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
       const wallet = wallets.find((candidate) => candidate.rdns === rdns);
       if (!wallet) return false;
 
+      const generation = generationRef.current;
       setIsConnecting(true);
       setError(undefined);
       try {
         const found = await getAccounts(wallet.provider, true);
         if (!found) throw new Error('No account returned by the wallet');
         await ensureAppChain(wallet.provider);
+        if (generation !== generationRef.current) {
+          return false;
+        }
         setSelected(wallet);
         setAddress(found);
         setChainError(undefined);
         writeAuth({ rdns });
         return true;
       } catch (err: any) {
-        setError(err?.message ?? 'Failed to connect');
+        if (generation === generationRef.current) {
+          setError(err?.message ?? 'Failed to connect');
+        }
         return false;
       } finally {
         setIsConnecting(false);
@@ -227,16 +234,21 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
     [wallets]
   );
 
+  const release = useCallback(() => {
+    generationRef.current += 1;
+    setAddress(undefined);
+    setSelected(null);
+    setError(undefined);
+    setChainError(undefined);
+  }, []);
+
   const disconnect = useCallback(async () => {
     writeAuth('disconnected');
     try {
       await selected?.provider.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] });
     } catch {} // MetaMask-only; other wallets keep the grant, hence the stored record
-    setAddress(undefined);
-    setSelected(null);
-    setError(undefined);
-    setChainError(undefined);
-  }, [selected]);
+    release();
+  }, [release, selected]);
 
   return useMemo(
     () => ({
@@ -249,8 +261,9 @@ export function useInjectedWallet({ canAutoAdopt }: { canAutoAdopt: boolean }) {
       eip1193: chainError ? undefined : selected?.provider,
       error,
       isConnecting,
+      release,
       wallets,
     }),
-    [address, chainError, connect, disconnect, error, isConnecting, selected, wallets]
+    [address, chainError, connect, disconnect, error, isConnecting, release, selected, wallets]
   );
 }

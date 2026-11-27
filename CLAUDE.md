@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Wallet stack**, layered — use `src/lib/use-ocean-account.tsx`'s `useOceanAccount()` for "current wallet" state, not a lower-level library directly: Privy (`@privy-io/react-auth`) handles login/auth → `@privy-io/alchemy-migration` bridges to an Alchemy smart-contract account → `useOceanAccount()` branches between an `SCAHandler` (smart-account path) and an `EOAHandler` (plain wallet path, e.g. MetaMask).
 - **Direct Ocean Node calls** (bypassing the incentive-backend proxy) go through `@oceanprotocol/lib`'s `ProviderInstance` in `src/services/nodeService.ts`.
 - **Charts**: `recharts`, in `src/components/chart/`.
+- **Database**: Neon Postgres via Drizzle ORM (`drizzle-orm/neon-http` + `@neondatabase/serverless`). Schema in `src/db/schema.ts`, client via `getDb()` in `src/db/index.ts`, generated migrations in `drizzle/`. Only API routes may import `@/db`.
 
 ## Commands
 
@@ -26,6 +27,9 @@ yarn start       # next start
 yarn lint        # eslint --ext .ts,.tsx .
 yarn lint:fix
 yarn format      # prettier --write
+yarn db:generate # drizzle-kit: SQL migration from src/db/schema.ts changes
+yarn db:migrate  # apply pending migrations to DB_DATABASE_URL_UNPOOLED (falls back to DB_DATABASE_URL)
+yarn db:studio   # browse the database
 ```
 
 **There is no test script and no automated test suite.** CI (`.github/workflows/ci.yml`) only runs `yarn lint` — a green CI run does not mean the app builds or works.
@@ -36,11 +40,14 @@ yarn format      # prettier --write
 - `src/context/` and `src/contexts/` — domain state providers (note the split across two similarly-named folders; both are wired into `_app.tsx`).
 - `src/lib/` — wallet/web3 hooks and adapters (see stack section above), plus the query client.
 - `src/services/` and `src/api-services/` — backend integration. `src/config.ts` defines `API_ROOTS`/`apiRoutes`, switching between dev/prod URLs for the incentive-backend and analytics services based on `NEXT_PUBLIC_APP_ENV`. `src/api-services/*` backs the server-only Subsidy flow (Google Sheets, Gmail, Gemini).
+- `src/db/` + `drizzle/` — Postgres schema, client and migrations. Schema workflow: edit `schema.ts` → `yarn db:generate` → commit the generated `.sql` and `drizzle/meta/*` → `yarn db:migrate`. Never hand-edit files in `drizzle/`.
+- **Onboarding** (`src/components/auth/onboarding-steps.tsx`, `src/lib/onboarding.ts`, `src/pages/api/onboarding.ts`) — shown after first login. Questions and options live in `src/lib/onboarding-questions.json`; each goal has a `destination` that is a node id in `src/lib/navigation-tree.ts`. The API stores answers in `onboarding_answers` (one row per lowercased wallet address) and returns only `{ onboarded, destination }`. Saving requires a wallet signature (`requireWalletSignature` in `src/api-services/wallet-auth.ts`, shared with the Subsidy flow; each flow signs its own message), which deploys the smart account on first use for SCA users. The the redirect is the deepest common tree node of the picked goals, computed server-side. A valid `?next=` on `/login` overrides it.
+- `src/lib/navigation-tree.ts` — `NAV_TREE` maps logical page nodes (home → inference/compute → subpages) to paths from `getRoutes()`/`INFERENCE_PATHS`. Reference node ids, not URLs, when something needs to point at a section.
 - `src/components/` — ~35 feature folders. Filenames are kebab-case (`pie-chart.tsx`), exported components are PascalCase. Styling is co-located CSS Modules per component.
 
 ## Environment
 
-Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `SUBSIDY_GSHEETS_*`, `SUBSIDY_GMAIL_*`, `SUBSIDY_ACCESS_LIST_*`, `NEXT_PUBLIC_SUBSIDY_PROVIDERS` (comma-separated provider addresses)), `NEXT_PUBLIC_GPU_LIST`.
+Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `NEXT_PUBLIC_APP_ENV` (dev vs prod — picks backend URLs and chain: Sepolia vs Base), Alchemy/Privy keys (`NEXT_PUBLIC_ALCHEMY_API_KEY`, `NEXT_PUBLIC_ALCHEMY_POLICY_ID`, `NEXT_PUBLIC_PRIVY_APP_ID`), Subsidy-flow server secrets (`GEMINI_API_KEY`, `SUBSIDY_GSHEETS_*`, `SUBSIDY_GMAIL_*`, `SUBSIDY_ACCESS_LIST_*`, `NEXT_PUBLIC_SUBSIDY_PROVIDERS` (comma-separated provider addresses)), `NEXT_PUBLIC_GPU_LIST`, `DB_DATABASE_URL` (Neon pooled) and `DB_DATABASE_URL_UNPOOLED` (direct, for migrations).
 
 ## Known gotchas
 
@@ -49,6 +56,8 @@ Env vars live in `.env`/`.env.local` (never commit real values). Notable ones: `
 - **Wagmi is not actually used**, despite being a dependency and mentioned in the README's stack table — there are no `from 'wagmi'` imports anywhere in `src/`. The real wallet abstraction is `src/lib/use-ocean-account.tsx`.
 - **`src/lib/config.ts` exports an unused second `QueryClient`** — the one actually wired into the app is created separately in `_app.tsx`. Likely dead code; don't build on the one in `lib/config.ts`.
 - `tsconfig.json` declares `@Types/*` → `src/shared/types/*` and `@utils/*` → `src/shared/utils/*`, but only `src/shared/consts/` actually exists — those two aliases don't currently resolve to anything.
+- **Migrations don't run on deploy.** Run `yarn db:migrate` against the Neon `main` branch before deploying schema changes. Each Neon branch (production `main`, your dev branch, Vercel's `preview/*` branches) has its own endpoint (`ep-…` host) and must be migrated separately; preview branches copy `main` when created.
+- **`import 'server-only'` breaks API routes here.** It only resolves to a no-op under the App Router's `react-server` condition; in Pages Router API routes it throws. Don't use it to guard `@/db`.
 - Production builds require `NODE_OPTIONS=--max-old-space-size=4096` (already set in the `build` script) — the build is memory-constrained.
 
 ## Verifying changes

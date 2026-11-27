@@ -125,3 +125,37 @@
     transition: none;
   }
 }
+
+/* Above the tile's link, so it stays clickable on a linked tile. */
+.listen {
+  align-items: center;
+  backdrop-filter: var(--backdrop-filter-glass);
+  background: #000000b0;
+  border: 0;
+  border-radius: 100px;
+  bottom: 10px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 600;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  position: absolute;
+  right: 10px;
+  transition: transform 0.3s ease;
+  z-index: 3;
+
+  &:hover {
+    transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--accent1);
+    outline-offset: 2px;
+  }
+
+  svg {
+    font-size: 18px;
+  }
+}

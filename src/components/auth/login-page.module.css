@@ -1,0 +1,119 @@
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100svh;
+
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  }
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  padding: 28px 16px 24px;
+
+  @media (min-width: 960px) {
+    padding: 28px 48px;
+  }
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.right {
+  display: none;
+
+  @media (min-width: 960px) {
+    align-self: start;
+    display: block;
+    height: 100svh;
+    padding: 16px 16px 16px 0;
+    position: sticky;
+    top: 0;
+  }
+}
+
+.root {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+.step {
+  max-width: 520px;
+  width: 100%;
+}
+
+.lead {
+  margin-top: 12px;
+
+  strong {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+}
+
+.stack {
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.formStack {
+  gap: 12px;
+}
+
+.full {
+  width: 100%;
+}
+
+.passkeys {
+  flex-wrap: wrap;
+}
+
+.inputIcon {
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.or {
+  color: var(--text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  margin: 4px 0;
+  text-transform: uppercase;
+}
+
+.code {
+  margin-top: 28px;
+}
+
+.message {
+  font-size: 14px;
+  margin-top: 12px;
+  min-height: 20px;
+}
+
+.row {
+  margin-top: 20px;
+}
+
+.fine {
+  margin-top: 4px;
+  text-align: center;
+
+  a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.status {
+  padding: 64px 0;
+}

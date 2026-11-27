@@ -8,9 +8,9 @@ import {
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
-import { requireWalletSignature } from '@/api-services/subsidy-auth';
 import { walletAddressBodySchema } from '@/api-services/subsidy-schemas';
-import { SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyStatus } from '@/types/subsidy';
+import { requireWalletSignature } from '@/api-services/wallet-auth';
+import { getSubsidyAuthMessage, SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS, SubsidyStatus } from '@/types/subsidy';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 const RESEND_COOLDOWN_MS = SUBSIDY_OTP_RESEND_COOLDOWN_SECONDS * 1000;
@@ -35,7 +35,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return;
   }
 
-  if (!(await requireWalletSignature(response, walletAddress, body))) {
+  if (!(await requireWalletSignature(response, walletAddress, body, getSubsidyAuthMessage))) {
     return;
   }
 

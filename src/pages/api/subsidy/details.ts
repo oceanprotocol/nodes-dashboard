@@ -13,9 +13,10 @@ import {
 } from '@/api-services/gsheets';
 import { generateOTP, hashOTP } from '@/api-services/otp';
 import { allowMethod, isWalletAddress, parseBody } from '@/api-services/request';
-import { requireWalletSignature } from '@/api-services/subsidy-auth';
 import { subsidyDetailsBodySchema } from '@/api-services/subsidy-schemas';
+import { requireWalletSignature } from '@/api-services/wallet-auth';
 import {
+  getSubsidyAuthMessage,
   isValidHandle,
   normalizeHandles,
   SubmitSubsidyDetailsResponse,
@@ -50,7 +51,7 @@ export default async function handler(request: NextApiRequest, response: NextApi
     return;
   }
 
-  if (!(await requireWalletSignature(response, data.walletAddress, data))) {
+  if (!(await requireWalletSignature(response, data.walletAddress, data, getSubsidyAuthMessage))) {
     return;
   }
 

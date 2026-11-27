@@ -1,4 +1,5 @@
-import { SubsidyAuth, SubsidyDetails } from '@/types/subsidy';
+import { SubsidyDetails } from '@/types/subsidy';
+import { WalletAuth } from '@/types/wallet-auth';
 import * as Yup from 'yup';
 
 const subsidyAuthShape = {
@@ -11,7 +12,7 @@ export const walletAddressBodySchema = Yup.object({
   walletAddress: Yup.string().required(),
 });
 
-export const subsidyDetailsBodySchema: Yup.ObjectSchema<SubsidyDetails & SubsidyAuth> = Yup.object({
+export const subsidyDetailsBodySchema: Yup.ObjectSchema<SubsidyDetails & WalletAuth> = Yup.object({
   ...subsidyAuthShape,
   email: Yup.string().required(),
   handles: Yup.object({

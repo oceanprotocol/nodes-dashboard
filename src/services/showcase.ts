@@ -10,13 +10,13 @@ const SOURCE_CATALOGUES: Record<ShowcaseSource['kind'], string> = {
   package: INFERENCE_PATHS.packages,
 };
 
-const toItem = ({ file, poster, ...entry }: ShowcaseEntry): ShowcaseItem => ({
+export const toShowcaseItem = ({ file, poster, ...entry }: ShowcaseEntry): ShowcaseItem => ({
   ...entry,
   src: `${SHOWCASE_DIR}/${file}`,
   poster: poster ? `${SHOWCASE_DIR}/${poster}` : undefined,
 });
 
-export const SHOWCASE_ITEMS: ShowcaseItem[] = SHOWCASE_ENTRIES.map(toItem);
+export const SHOWCASE_ITEMS: ShowcaseItem[] = SHOWCASE_ENTRIES.map(toShowcaseItem);
 
 export const showcaseSourceHref = (source: ShowcaseSource): string =>
   detailsPath(SOURCE_CATALOGUES[source.kind], source.id);

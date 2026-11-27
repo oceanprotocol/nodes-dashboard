@@ -1,5 +1,5 @@
 import { getProvider } from '@/api-services/subsidy-access-list';
-import { getSubsidyAuthMessage, SUBSIDY_AUTH_ERROR, SUBSIDY_AUTH_TTL_MS, SubsidyAuth } from '@/types/subsidy';
+import { WALLET_AUTH_ERROR, WALLET_AUTH_TTL_MS, WalletAuth, WalletAuthMessageBuilder } from '@/types/wallet-auth';
 import { ethers } from 'ethers';
 import type { NextApiResponse } from 'next';
 
@@ -46,38 +46,47 @@ const isContractSignature = async (message: string, signature: string, walletAdd
   );
 };
 
-const isValidSubsidyAuth = async (walletAddress: string, { expiryTimestamp, signature }: SubsidyAuth) => {
+const isValidWalletAuth = async (
+  walletAddress: string,
+  { expiryTimestamp, signature }: WalletAuth,
+  getMessage: WalletAuthMessageBuilder
+) => {
   const now = Date.now();
   if (
     !Number.isSafeInteger(expiryTimestamp) ||
     expiryTimestamp <= now ||
-    expiryTimestamp > now + SUBSIDY_AUTH_TTL_MS + CLOCK_SKEW_MS
+    expiryTimestamp > now + WALLET_AUTH_TTL_MS + CLOCK_SKEW_MS
   ) {
     return false;
   }
   if (!ethers.isHexString(signature) || signature.length > MAX_SIGNATURE_LENGTH) {
     return false;
   }
-  const message = getSubsidyAuthMessage(walletAddress, expiryTimestamp);
+  const message = getMessage(walletAddress, expiryTimestamp);
   return (
     isEoaSignature(message, signature, walletAddress) || (await isContractSignature(message, signature, walletAddress))
   );
 };
 
-/** Responds 401 and returns `false` unless the wallet signed the subsidy auth message. */
-export const requireWalletSignature = async (response: NextApiResponse, walletAddress: string, auth: SubsidyAuth) => {
+/** Responds 401 and returns `false` unless the wallet signed the message built by `getMessage`. */
+export const requireWalletSignature = async (
+  response: NextApiResponse,
+  walletAddress: string,
+  auth: WalletAuth,
+  getMessage: WalletAuthMessageBuilder
+) => {
   try {
-    if (await isValidSubsidyAuth(walletAddress, auth)) {
+    if (await isValidWalletAuth(walletAddress, auth, getMessage)) {
       return true;
     }
   } catch (error) {
-    console.error('Error verifying subsidy signature:', error);
+    console.error('Error verifying wallet signature:', error);
     response.status(503).json({ message: "We couldn't verify your wallet signature. Please try again." });
     return false;
   }
   // `serverTime` lets a client with a wrong clock sign again with a valid expiry.
   response.status(401).json({
-    error: SUBSIDY_AUTH_ERROR,
+    error: WALLET_AUTH_ERROR,
     message: 'Wallet signature is invalid or expired. Please try again.',
     serverTime: Date.now(),
   });

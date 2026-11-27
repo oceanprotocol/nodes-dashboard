@@ -1,4 +1,3 @@
-/* App tokens by default (the fallback modal is dark); the Privy portal overrides to light. */
 .root {
   display: flex;
   flex-direction: column;

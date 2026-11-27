@@ -2,6 +2,7 @@ import DiscordIcon from '@/assets/discord.svg';
 import Logo from '@/assets/logo.svg';
 import XIcon from '@/assets/x.svg';
 import Avatar from '@/components/avatar/avatar';
+import BrandLogo from '@/components/brand-logo/brand-logo';
 import Button from '@/components/button/button';
 import Card from '@/components/card/card';
 import { useProfileContext } from '@/context/profile-context';
@@ -12,7 +13,6 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import { CircularProgress } from '@mui/material';
 import { default as classNames, default as cx } from 'classnames';
-import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useRef, useState } from 'react';
 import config, { getRoutes } from '../../config';
@@ -80,7 +80,7 @@ const AccountButton = ({ onNavigate }: { onNavigate?: () => void }) => {
 type AccountActionsProps = {
   /** Mobile sidebar: link straight to the account page and expose log out as its own button. */
   asLinks?: boolean;
-  /** Called when the slot navigates away or opens the login modal, so the sidebar can close. */
+  /** Called when the slot navigates away or opens the login page, so the sidebar can close. */
   onNavigate?: () => void;
 };
 
@@ -219,16 +219,7 @@ const Navigation = () => {
     <header className={styles.root}>
       <div className={styles.bgBlur} />
       <Container className={classNames(styles.container, { [styles.containerScrolledBottom]: isScrolledBottom })}>
-        <div className={styles.logoWrapper}>
-          <div aria-hidden className={styles.logoHalo} />
-          <Link href="/" aria-label="Home">
-            <Logo
-              className={classNames(styles.logo, { [styles.logoScrolledBottom]: isScrolledBottom })}
-              preserveAspectRatio="xMidYMin slice"
-            />
-          </Link>
-          <div className={classNames('chip', 'chipAccent2', styles.betaChip)}>BETA</div>
-        </div>
+        <BrandLogo className={styles.logoWrapper} compact={isScrolledBottom} />
         <Card aria-label="Primary" className={styles.desktopNav} shadow="black" variant="glass-shaded">
           {renderNavLinks()}
         </Card>

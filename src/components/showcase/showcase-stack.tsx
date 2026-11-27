@@ -177,6 +177,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
   const [focused, setFocused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [videoEndedStep, setVideoEndedStep] = useState<number | null>(null);
+  const [listening, setListening] = useState(false);
 
   useEffect(() => {
     setReducedMotion(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -191,10 +192,11 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
     return () => observer.disconnect();
   }, []);
 
-  const paused = hovered || focused || reducedMotion;
+  const paused = hovered || focused || reducedMotion || listening;
 
-  const frontIsVideo =
-    items.length > 0 && items[((step % items.length) + items.length) % items.length].type === 'video';
+  const frontItem = items.length > 0 ? items[((step % items.length) + items.length) % items.length] : null;
+  // A video with sound waits for a click to play, so it holds the deck only while it plays.
+  const frontIsVideo = frontItem?.type === 'video' && !frontItem.audio;
   const waitingOnVideo = frontIsVideo && videoEndedStep !== step;
 
   // Restarts on every step, so a manual move gets a full interval before the next automatic one. A video
@@ -347,6 +349,7 @@ const ShowcaseStack = ({ 'aria-label': ariaLabel, className, items }: ShowcaseSt
                 href={relative === 0 ? showcaseSourceHref(item.source) : undefined}
                 inert={!visible}
                 item={item}
+                onListeningChange={relative === 0 ? setListening : undefined}
                 onVideoEnded={
                   items.length > 1
                     ? () => {
