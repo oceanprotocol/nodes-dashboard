@@ -20,13 +20,15 @@ const FLOW_STEPS: FlowStep[] = [
   { title: 'Call the Endpoint', description: 'OpenAI-compatible API, live logs' },
 ];
 
-const BACKGROUND_MEDIA = SHOWCASE_ITEMS.slice(0, 6).map(({ type, src, poster, width, height }) => ({
-  type,
-  src,
-  poster,
-  width,
-  height,
-}));
+const BACKGROUND_MEDIA = SHOWCASE_ITEMS.filter((item) => !item.audio)
+  .slice(0, 6)
+  .map(({ type, src, poster, width, height }) => ({
+    type,
+    src,
+    poster,
+    width,
+    height,
+  }));
 
 const trackEntry = (branch: InferenceBranch) => {
   trackInferenceFlowStarted(branch, 'index');

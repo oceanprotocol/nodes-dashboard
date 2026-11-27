@@ -1,13 +1,16 @@
+import Button from '@/components/button/button';
 import useServiceTemplates from '@/components/hooks/use-service-templates';
 import TemplateAvatar from '@/components/inference/template-avatar';
 import { templateLogoForName, templateLogoSrc } from '@/components/inference/template-logos';
 import { ShowcaseItem } from '@/types/showcase';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import classNames from 'classnames';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CSSProperties, useEffect, useRef } from 'react';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
 import styles from './showcase-tile.module.css';
 
 export const ratioOf = (item: ShowcaseItem) => item.width / item.height;
@@ -115,6 +118,100 @@ const ShowcaseVideo = ({
   );
 };
 
+/** The one video playing with sound, so starting another stops it. */
+let audibleVideo: HTMLVideoElement | null = null;
+
+/**
+ * A video with sound. It never autoplays: it waits on its first frame until the Listen button starts it,
+ * unmuted. It stops when it stops being active or scrolls out of view, and reports whether it is playing
+ * so a carousel can hold while it does.
+ */
+const ShowcaseListenVideo = ({
+  active,
+  onListeningChange,
+  poster,
+  src,
+}: {
+  active: boolean;
+  onListeningChange?: (listening: boolean) => void;
+  poster?: string;
+  src: string;
+}) => {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const onListeningChangeRef = useRef(onListeningChange);
+  onListeningChangeRef.current = onListeningChange;
+
+  useEffect(() => {
+    onListeningChangeRef.current?.(playing);
+  }, [playing]);
+
+  useEffect(() => {
+    if (!active) {
+      ref.current?.pause();
+    }
+  }, [active]);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || !playing) {
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) {
+        video.pause();
+      }
+    });
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, [playing]);
+
+  const toggle = () => {
+    const video = ref.current;
+    if (!video) {
+      return;
+    }
+    if (!video.paused) {
+      video.pause();
+      return;
+    }
+    if (audibleVideo && audibleVideo !== video) {
+      audibleVideo.pause();
+    }
+    audibleVideo = video;
+    video.muted = false;
+    video.play().catch(() => setPlaying(false));
+  };
+
+  return (
+    <>
+      <video
+        className={styles.media}
+        onPause={() => setPlaying(false)}
+        onPlay={() => setPlaying(true)}
+        playsInline
+        poster={poster}
+        preload="metadata"
+        ref={ref}
+        src={src.includes('#') ? src : `${src}#t=0.001`}
+      />
+      {active && (
+        <Button
+          aria-label={playing ? 'Pause' : 'Listen with sound'}
+          className={styles.listen}
+          color="accent1"
+          contentBefore={playing ? <PauseRoundedIcon fontSize="small" /> : <VolumeUpRoundedIcon fontSize="small" />}
+          onClick={toggle}
+          size="sm"
+          variant="glass"
+        >
+          {playing ? 'Pause' : 'Listen'}
+        </Button>
+      )}
+    </>
+  );
+};
+
 type ShowcaseTileProps = {
   /** Plays its video; inactive tiles keep theirs paused. */
   active?: boolean;
@@ -128,6 +225,8 @@ type ShowcaseTileProps = {
   inert?: boolean;
   /** Plays a video once instead of looping and reports when it ends (or can't play). */
   onVideoEnded?: () => void;
+  /** Reports when a video with sound starts or stops playing. */
+  onListeningChange?: (listening: boolean) => void;
   /** Overrides the media's own ratio, e.g. to give a slot a fixed shape. The media is cropped to fit. */
   ratio?: number;
   /** Rough rendered height as a share of the viewport height, for the image's `sizes`. */
@@ -147,6 +246,7 @@ const ShowcaseTile = ({
   href,
   inert,
   item,
+  onListeningChange,
   onVideoEnded,
   ratio = ratioOf(item),
   sizeVh = 45,
@@ -154,7 +254,14 @@ const ShowcaseTile = ({
 }: ShowcaseTileProps) => {
   return (
     <figure className={classNames(styles.tile, className)} style={{ '--ratio': ratio, ...style } as CSSProperties}>
-      {item.type === 'video' ? (
+      {item.type === 'video' && item.audio ? (
+        <ShowcaseListenVideo
+          active={active}
+          onListeningChange={onListeningChange}
+          poster={item.poster}
+          src={item.src}
+        />
+      ) : item.type === 'video' ? (
         <ShowcaseVideo active={active} eager={eager} onEnded={onVideoEnded} poster={item.poster} src={item.src} />
       ) : (
         <Image

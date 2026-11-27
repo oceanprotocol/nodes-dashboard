@@ -125,3 +125,11 @@
     transition: none;
   }
 }
+
+/* Above the tile's link, so it stays clickable on a linked tile. */
+.listen {
+  bottom: 10px;
+  position: absolute;
+  right: 10px;
+  z-index: 3;
+}

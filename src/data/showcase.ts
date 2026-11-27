@@ -13,7 +13,28 @@ const VIDEO_STUDIO_MINIMAX_H3: ShowcaseSource = {
   label: 'Video Studio · MiniMax H3',
 };
 
+const UGC_REEL_MINIMAX_H3: ShowcaseSource = {
+  kind: 'template',
+  id: 'ugc-reel-minimax-h3',
+  label: 'UGC Reel · MiniMax H3',
+};
+
+const MUSIC_GENERATOR_MINIMAX_MUSIC3: ShowcaseSource = {
+  kind: 'template',
+  id: 'music-generator-minimax-music3',
+  label: 'Music Generator · MiniMax Music 3',
+};
+
 export const SHOWCASE_ENTRIES: ShowcaseEntry[] = [
+  {
+    id: 'newspaper-gift',
+    type: 'video',
+    file: 'Video Generator.mp4',
+    width: 1344,
+    height: 768,
+    alt: 'Gift wrapped in newspaper and tape with a red bow on a marble table',
+    source: VIDEO_STUDIO_MINIMAX_H3,
+  },
   {
     id: 'paper-ocean',
     type: 'video',
@@ -76,5 +97,51 @@ export const SHOWCASE_ENTRIES: ShowcaseEntry[] = [
     height: 544,
     alt: 'Spider in a dew-covered web at dawn',
     source: VIDEO_STUDIO_MINIMAX_H3,
+  },
+  {
+    id: 'ugc-kitchen-review',
+    type: 'video',
+    file: 'UGC Reel Maker.mp4',
+    width: 768,
+    height: 1344,
+    alt: 'Woman with lavender hair talking to the camera in a kitchen while holding a product',
+    source: UGC_REEL_MINIMAX_H3,
+  },
+  {
+    id: 'ugc-bathrobe-phone',
+    type: 'video',
+    file: 'UGC_Reek Maker_1.mp4',
+    width: 608,
+    height: 1056,
+    alt: 'Man in a bathrobe smiling at his phone, with on-screen captions',
+    source: UGC_REEL_MINIMAX_H3,
+  },
+  {
+    id: 'ugc-noodles',
+    type: 'video',
+    file: 'UGC_Reel Maker_2.mp4',
+    width: 608,
+    height: 1056,
+    alt: 'Woman with red hair and glasses eating noodles from a takeout box',
+    source: UGC_REEL_MINIMAX_H3,
+  },
+  {
+    id: 'ugc-neon-cash',
+    type: 'video',
+    file: 'UGC_Reel Maker_3.mp4',
+    width: 608,
+    height: 1056,
+    alt: 'Woman in sunglasses throwing cash in a room lit by neon palm and flamingo signs',
+    source: UGC_REEL_MINIMAX_H3,
+  },
+  {
+    id: 'music-drifting-thoughts',
+    type: 'video',
+    file: 'Music Generator.mp4',
+    width: 1920,
+    height: 1080,
+    alt: 'Retro music player playing Drifting Thoughts, a generated track',
+    source: MUSIC_GENERATOR_MINIMAX_MUSIC3,
+    audio: true,
   },
 ];
