@@ -18,6 +18,11 @@
   min-width: 0;
 }
 
+.headerTitle {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Status chip + the startup readout beside it. Kept on one row and never allowed to shrink, so a
    long service name wraps or ellipsises instead of squeezing the readout. */
 .headerStatus {
@@ -65,6 +70,11 @@
 }
 
 .status_warming {
+  background: var(--warning);
+  color: var(--warning-contrast);
+}
+
+.status_unverified {
   background: var(--warning);
   color: var(--warning-contrast);
 }

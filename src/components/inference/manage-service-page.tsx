@@ -53,7 +53,7 @@ import {
 } from '@/services/template-launch';
 import { EscrowLock } from '@/types/payment';
 import { getRuntimeMetrics } from '@/types/runtime-metrics';
-import { getModelDownload, getServiceReadiness, isServiceReady } from '@/types/service-readiness';
+import { getModelDownload, getServiceReadiness, getServiceStartup, isServiceReady } from '@/types/service-readiness';
 import { includedRepoId, isBundle, isCurated } from '@/types/templates';
 import { formatDuration, formatHMS } from '@/utils/formatters';
 import { resourceDescriptionsById } from '@/utils/resources';
@@ -747,7 +747,7 @@ const ManageServicePage: React.FC = () => {
     });
   }, [job, isBundleService, template, readiness?.state, id, branch]);
   const status = job
-    ? getServiceStatusView(job.status, job.statusText, readiness)
+    ? getServiceStatusView(job.status, job.statusText, getServiceStartup(job))
     : { kind: 'pending' as const, label: jobLoading ? 'Loading…' : 'Unknown' };
   const isRunning = job?.status === ServiceStatusNumber.Running;
   const jobServiceIdForLock = job?.serviceId;
@@ -1105,7 +1105,7 @@ const ManageServicePage: React.FC = () => {
           {/* Header */}
           <Card direction="column" padding="md" radius="lg" shadow="black" spacing="lg" variant="glass-shaded">
             <div className={styles.header}>
-              <div>
+              <div className={styles.headerTitle}>
                 <h3>{serviceName}</h3>
                 {/* Anything that isn't a template app is a model service — reached from the custom
                     picker OR from a curated package, and the package identity isn't carried this far,
@@ -1114,7 +1114,7 @@ const ManageServicePage: React.FC = () => {
               </div>
               <div className={styles.headerStatus}>
                 {/* How far along the startup is, next to what the status says it is. Renders
-                    nothing once the engine answers, or once a download with no readiness ends. */}
+                    nothing once the service answers. */}
                 <ServiceStartupIndicator className={styles.headerProgress} job={job} />
                 <span className={cx('chip', styles.statusChip, styles[`status_${status.kind}`])}>
                   {status.kind === 'pending' || status.kind === 'warming' ? (

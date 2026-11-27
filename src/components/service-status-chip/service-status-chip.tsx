@@ -1,5 +1,5 @@
 import { getComputeJobStatusView, getServiceStatusView, ServiceStatusView } from '@/services/service-status';
-import { ServiceReadiness } from '@/types/service-readiness';
+import { ServiceStartup } from '@/types/service-readiness';
 import { CircularProgress } from '@mui/material';
 import { ServiceStatusNumber } from '@oceanprotocol/lib';
 import cx from 'classnames';
@@ -33,10 +33,10 @@ export const ServiceStatusChip: React.FC<{
   compact?: boolean;
   status: ServiceStatusNumber | undefined;
   statusText?: string;
-  /** From the node's readiness probe — see types/service-readiness. Omitted, Running reads as before. */
-  readiness?: ServiceReadiness | null;
-}> = ({ compact, status, statusText, readiness }) => (
-  <StatusChip compact={compact} view={getServiceStatusView(status, statusText, readiness)} />
+  /** The live record's startup report — see types/service-readiness. Omit for a row with no live record. */
+  startup?: ServiceStartup;
+}> = ({ compact, status, statusText, startup }) => (
+  <StatusChip compact={compact} view={getServiceStatusView(status, statusText, startup)} />
 );
 
 export const JobStatusChip: React.FC<{ status: number | undefined; statusText?: string }> = ({

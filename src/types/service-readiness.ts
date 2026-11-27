@@ -63,7 +63,10 @@ export interface ServiceModelDownload {
 
 const READINESS_STATES: ServiceReadinessState[] = ['waiting', 'ready', 'failing'];
 
-/** Narrow-or-null reader for `job.readiness`. Null means "this node doesn't report readiness". */
+/**
+ * Narrow-or-null reader for `job.readiness`. Null means the node has no verdict: it doesn't report
+ * readiness, or it reports `unknown` (the service answered only with an auth challenge).
+ */
 export function getServiceReadiness(job: unknown): ServiceReadiness | null {
   if (!job || typeof job !== 'object') {
     return null;
@@ -108,7 +111,32 @@ export function getModelDownload(job: unknown): ServiceModelDownload | null {
   if (typeof d.downloadedBytes !== 'number' || typeof d.filesComplete !== 'number') {
     return null;
   }
-  return download as ServiceModelDownload;
+  // A stored copy of the record carries null for the keys the node omits.
+  return {
+    ...d,
+    totalBytes: numberOrUndefined(d.totalBytes),
+    percent: numberOrUndefined(d.percent),
+    filesTotal: numberOrUndefined(d.filesTotal),
+  } as ServiceModelDownload;
+}
+
+function numberOrUndefined(value: unknown): number | undefined {
+  return typeof value === 'number' ? value : undefined;
+}
+
+/** A download listed up front (a template's manifest) is done when every entry is. */
+export function isModelDownloading(download: ServiceModelDownload): boolean {
+  return download.filesTotal !== undefined ? download.filesComplete < download.filesTotal : download.percent !== 100;
+}
+
+/** What the node reports about a live service's startup, beyond its container status. */
+export interface ServiceStartup {
+  readiness: ServiceReadiness | null;
+  modelDownload: ServiceModelDownload | null;
+}
+
+export function getServiceStartup(job: unknown): ServiceStartup {
+  return { readiness: getServiceReadiness(job), modelDownload: getModelDownload(job) };
 }
 
 /**

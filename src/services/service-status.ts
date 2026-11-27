@@ -1,11 +1,12 @@
-import { ServiceReadiness } from '@/types/service-readiness';
+import { isModelDownloading, ServiceStartup } from '@/types/service-readiness';
 import { ServiceStatusNumber } from '@oceanprotocol/lib';
 
-// The node reports one of ~14 numeric statuses. For display we collapse them into four visual
+// The node reports one of ~14 numeric statuses. For display we collapse them into a few visual
 // kinds — a live service (green dot), one that is up but not yet answering (amber spinner), one
-// still settling (spinner), or a terminal/failed one (dim/red dot) — plus a human label that reads
-// better than the node's raw `statusText`.
-export type ServiceStatusKind = 'running' | 'warming' | 'pending' | 'dead' | 'failed';
+// that is up but that nothing can vouch for (amber dot), one still settling (spinner), or a
+// terminal/failed one (dim/red dot) — plus a human label that reads better than the node's raw
+// `statusText`.
+export type ServiceStatusKind = 'running' | 'warming' | 'unverified' | 'pending' | 'dead' | 'failed';
 
 export interface ServiceStatusView {
   kind: ServiceStatusKind;
@@ -45,15 +46,17 @@ const LABELS: Record<ServiceStatusNumber, string> = {
 /**
  * Map a service status to its display kind + label. Falls back to the node's raw text if unknown.
  *
- * `readiness` splits the node's single `Running` into two states the user experiences very
- * differently: the container is up (Running) versus the engine inside it can actually answer
- * (ready). For vLLM those are minutes apart. Omit it — or pass a job from a node that doesn't
- * report readiness — and Running reads as it always did.
+ * `startup` splits the node's single `Running` into the states the user experiences very
+ * differently: the container is up (Running) versus the workload inside it can actually answer
+ * (ready). For a model server those are minutes apart, so Running is only shown once the node has
+ * seen the service answer. A live service the node reports no readiness for is never called
+ * Running, because nothing says its model has loaded. Omit `startup` where no live record exists
+ * (history rows, status-code grouping) and Running reads as the node's own status.
  */
 export function getServiceStatusView(
   status: ServiceStatusNumber | undefined,
   statusText?: string,
-  readiness?: ServiceReadiness | null
+  startup?: ServiceStartup
 ): ServiceStatusView {
   if (status === undefined) {
     return { kind: 'pending', label: statusText || 'Unknown' };
@@ -63,15 +66,22 @@ export function getServiceStatusView(
     return { kind: 'running', label: 'Restarting' };
   }
   const label = LABELS[status] ?? statusText ?? `Status ${status}`;
-  if (status === ServiceStatusNumber.Running) {
-    if (readiness?.state === 'waiting') {
-      return { kind: 'warming', label: 'Warming up' };
+  if (status === ServiceStatusNumber.Running && startup) {
+    const { readiness, modelDownload } = startup;
+    if (readiness?.state === 'ready') {
+      return { kind: 'running', label };
     }
     // It answered before and stopped: the container is alive but the engine is not serving, which
     // is a different thing from a crash and must not read as healthy.
     if (readiness?.state === 'failing') {
       return { kind: 'warming', label: 'Not responding' };
     }
+    if (readiness || (modelDownload && isModelDownloading(modelDownload))) {
+      return { kind: 'warming', label: 'Starting' };
+    }
+    return { kind: 'unverified', label: 'Not verified' };
+  }
+  if (status === ServiceStatusNumber.Running) {
     return { kind: 'running', label };
   }
   if (FAILED_STATUSES.has(status)) {
@@ -86,7 +96,7 @@ export function getServiceStatusView(
 // A workload is "in flight" (still running or on its way there) when its view kind is running or
 // pending — i.e. not a terminal failure or a settled/done state. Deriving it from the view keeps a
 // single source of truth for the status codes: the mappers above / below.
-const IN_FLIGHT_KINDS = new Set<ServiceStatusKind>(['running', 'warming', 'pending']);
+const IN_FLIGHT_KINDS = new Set<ServiceStatusKind>(['running', 'warming', 'unverified', 'pending']);
 
 /** True while a service is mid-lifecycle (starting/pulling/locking/claiming/restarting/running/…). */
 export function isServiceInFlight(status: ServiceStatusNumber | undefined, statusText?: string): boolean {
@@ -255,6 +265,7 @@ export const STATUS_FILTER_OPTIONS: { value: StatusFilterKind; label: string }[]
 const FILTER_KIND_BY_VIEW: Record<ServiceStatusKind, StatusFilterKind> = {
   running: 'running',
   warming: 'running',
+  unverified: 'running',
   pending: 'pending',
   dead: 'finished',
   failed: 'failed',
