@@ -20,7 +20,7 @@
   }
 
   &:focus-within .track,
-  &.rowListening .track {
+  &.rowSoundOn .track {
     animation-play-state: paused;
   }
 

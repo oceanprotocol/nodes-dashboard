@@ -22,7 +22,7 @@ const FLOW_STEPS: FlowStep[] = [
 ];
 
 const BACKGROUND_MEDIA = SHOWCASE_ITEMS.filter(
-  (item): item is ShowcaseItem & { type: 'image' | 'video' } => item.type !== 'audio' && !item.audio
+  (item): item is ShowcaseItem & { type: 'image' | 'video' } => item.type !== 'audio'
 )
   .slice(0, 6)
   .map(({ type, src, poster, width, height }) => ({

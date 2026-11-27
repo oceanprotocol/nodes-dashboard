@@ -14,7 +14,7 @@ export type ShowcaseSource = {
 export type ShowcaseEntry = {
   /** Unique slug; also the media's filename stem in `public/showcase/`. */
   id: string;
-  /** `audio` has no picture: it shows as a player card at the given size, played from a Listen button. */
+  /** `audio` has no picture: it shows as a player card at the given size, played from its sound button. */
   type: 'image' | 'video' | 'audio';
   /** Filename in `public/showcase/`. */
   file: string;
@@ -25,8 +25,8 @@ export type ShowcaseEntry = {
   height: number;
   alt: string;
   source: ShowcaseSource;
-  /** Has a soundtrack worth hearing: never autoplays, and plays with sound from a Listen button. */
-  audio?: boolean;
+  /** A video with no sound worth hearing: plays without a sound button. */
+  silent?: boolean;
   /** Prompt used for the generation. */
   prompt?: string;
 };

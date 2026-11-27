@@ -5,13 +5,13 @@ import { templateLogoForName, templateLogoSrc } from '@/components/inference/tem
 import { ShowcaseItem } from '@/types/showcase';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
-import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import VolumeOffRoundedIcon from '@mui/icons-material/VolumeOffRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import classNames from 'classnames';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CSSProperties, RefObject, useEffect, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
 import styles from './showcase-tile.module.css';
 
 export const ratioOf = (item: ShowcaseItem) => item.width / item.height;
@@ -53,10 +53,79 @@ const ShowcaseChipMark = ({ item }: { item: ShowcaseItem }) => {
   );
 };
 
+/** The one media element with its sound on, so turning on another silences it. */
+let audibleMedia: HTMLMediaElement | null = null;
+
+const silence = (media: HTMLMediaElement) => {
+  if (media instanceof HTMLVideoElement) {
+    media.muted = true;
+  } else {
+    media.pause();
+  }
+};
+
 /**
- * Plays only while active and on (or near) screen, so a wall of looping videos doesn't decode off-screen
- * copies. Every video loads enough to show its first frame (the `#t` fragment makes Safari paint it too),
- * so a paused tile still shows its media rather than an empty card. Without motion it never plays.
+ * Tracks whether the media is audibly playing and reports it, so a carousel can hold while it is.
+ * Turning sound on starts the media if it is paused, and silences whichever other one had sound.
+ */
+const useSound = <T extends HTMLMediaElement>(onSoundChange?: (soundOn: boolean) => void) => {
+  const mediaRef = useRef<T>(null);
+  const [soundOn, setSoundOn] = useState(false);
+  const onSoundChangeRef = useRef(onSoundChange);
+  onSoundChangeRef.current = onSoundChange;
+
+  useEffect(() => {
+    onSoundChangeRef.current?.(soundOn);
+  }, [soundOn]);
+
+  const sync = () => {
+    const media = mediaRef.current;
+    setSoundOn(!!media && !media.paused && !media.muted);
+  };
+
+  const toggle = () => {
+    const media = mediaRef.current;
+    if (!media) {
+      return;
+    }
+    if (soundOn) {
+      silence(media);
+      return;
+    }
+    if (audibleMedia && audibleMedia !== media) {
+      silence(audibleMedia);
+    }
+    audibleMedia = media;
+    media.muted = false;
+    if (media.paused) {
+      media.play().catch(() => silence(media));
+    }
+  };
+
+  const mediaProps = { onPause: sync, onPlay: sync, onVolumeChange: sync };
+
+  return { mediaProps, mediaRef, soundOn, toggle };
+};
+
+const SoundButton = ({ onClick, soundOn }: { onClick: () => void; soundOn: boolean }) => (
+  <Button
+    aria-label={soundOn ? 'Turn sound off' : 'Turn sound on'}
+    aria-pressed={soundOn}
+    className={styles.sound}
+    color="primary-inverse"
+    onClick={onClick}
+    size="md-const"
+    variant="glass"
+  >
+    {soundOn ? <VolumeUpRoundedIcon fontSize="small" /> : <VolumeOffRoundedIcon fontSize="small" />}
+  </Button>
+);
+
+/**
+ * Plays muted, and only while active and on (or near) screen, so a wall of looping videos doesn't decode
+ * off-screen copies. Every video loads enough to show its first frame (the `#t` fragment makes Safari
+ * paint it too), so a paused tile still shows its media rather than an empty card. Without motion it
+ * only plays once its sound is turned on. It goes back to muted whenever it stops being active or visible.
  *
  * With `onEnded` it plays once from the start each time it becomes active instead of looping, and
  * reports the end; a video that can't play reports it right away, so whoever waits on it moves on.
@@ -65,190 +134,122 @@ const ShowcaseVideo = ({
   active,
   eager,
   onEnded,
+  onSoundChange,
   poster,
+  silent,
   src,
 }: {
   active: boolean;
   eager?: boolean;
   onEnded?: () => void;
+  onSoundChange?: (soundOn: boolean) => void;
   poster?: string;
+  silent?: boolean;
   src: string;
 }) => {
-  const ref = useRef<HTMLVideoElement>(null);
+  const { mediaProps, mediaRef, soundOn, toggle } = useSound<HTMLVideoElement>(onSoundChange);
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
   const playOnce = !!onEnded;
 
   useEffect(() => {
-    const video = ref.current;
+    const video = mediaRef.current;
     if (!video) {
-      return;
-    }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       return;
     }
     if (!active) {
       video.pause();
+      video.muted = true;
       if (playOnce) {
         video.currentTime = 0;
       }
       return;
     }
+    const autoplay = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        if (!entry.isIntersecting) {
+          video.pause();
+          video.muted = true;
+        } else if (autoplay) {
           // Rejected when the browser blocks autoplay; the poster/first frame stays up instead.
           video.play().catch(() => onEndedRef.current?.());
-        } else {
-          video.pause();
         }
       },
       { rootMargin: '0px 200px' }
     );
     observer.observe(video);
     return () => observer.disconnect();
-  }, [active, playOnce]);
-
-  return (
-    <video
-      className={styles.media}
-      loop={!playOnce}
-      muted
-      onEnded={() => onEndedRef.current?.()}
-      onError={() => onEndedRef.current?.()}
-      playsInline
-      poster={poster}
-      preload={eager ? 'auto' : 'metadata'}
-      ref={ref}
-      src={src.includes('#') ? src : `${src}#t=0.001`}
-    />
-  );
-};
-
-/** The one media element playing with sound, so starting another stops it. */
-let audibleMedia: HTMLMediaElement | null = null;
-
-/**
- * Click-to-play with sound. Never autoplays; stops when no longer active or when `viewRef` (the media
- * itself by default) scrolls out of view, and reports whether it is playing so a carousel can hold.
- */
-const useListenPlayback = <T extends HTMLMediaElement>(
-  active: boolean,
-  onListeningChange?: (listening: boolean) => void,
-  viewRef?: RefObject<HTMLElement | null>
-) => {
-  const mediaRef = useRef<T>(null);
-  const [playing, setPlaying] = useState(false);
-  const onListeningChangeRef = useRef(onListeningChange);
-  onListeningChangeRef.current = onListeningChange;
-
-  useEffect(() => {
-    onListeningChangeRef.current?.(playing);
-  }, [playing]);
-
-  useEffect(() => {
-    if (!active) {
-      mediaRef.current?.pause();
-    }
-  }, [active]);
-
-  useEffect(() => {
-    const media = mediaRef.current;
-    const view = viewRef?.current ?? media;
-    if (!media || !view || !playing) {
-      return;
-    }
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) {
-        media.pause();
-      }
-    });
-    observer.observe(view);
-    return () => observer.disconnect();
-  }, [playing, viewRef]);
-
-  const toggle = () => {
-    const media = mediaRef.current;
-    if (!media) {
-      return;
-    }
-    if (!media.paused) {
-      media.pause();
-      return;
-    }
-    if (audibleMedia && audibleMedia !== media) {
-      audibleMedia.pause();
-    }
-    audibleMedia = media;
-    media.muted = false;
-    media.play().catch(() => setPlaying(false));
-  };
-
-  const mediaProps = { onPause: () => setPlaying(false), onPlay: () => setPlaying(true) };
-
-  return { mediaProps, mediaRef, playing, toggle };
-};
-
-const ListenButton = ({ onClick, playing }: { onClick: () => void; playing: boolean }) => (
-  <Button
-    aria-label={playing ? 'Pause' : 'Listen with sound'}
-    className={styles.listen}
-    color="accent1"
-    contentBefore={playing ? <PauseRoundedIcon fontSize="small" /> : <VolumeUpRoundedIcon fontSize="small" />}
-    onClick={onClick}
-    size="sm"
-    variant="glass"
-  >
-    {playing ? 'Pause' : 'Listen'}
-  </Button>
-);
-
-type ListenMediaProps = {
-  active: boolean;
-  onListeningChange?: (listening: boolean) => void;
-  src: string;
-};
-
-/** A video with sound: waits on its first frame until the Listen button starts it, unmuted. */
-const ShowcaseListenVideo = ({ active, onListeningChange, poster, src }: ListenMediaProps & { poster?: string }) => {
-  const { mediaProps, mediaRef, playing, toggle } = useListenPlayback<HTMLVideoElement>(active, onListeningChange);
+  }, [active, mediaRef, playOnce]);
 
   return (
     <>
       <video
         className={styles.media}
+        loop={!playOnce}
+        muted
+        onEnded={() => onEndedRef.current?.()}
+        onError={() => onEndedRef.current?.()}
         playsInline
         poster={poster}
-        preload="metadata"
+        preload={eager ? 'auto' : 'metadata'}
         ref={mediaRef}
         src={src.includes('#') ? src : `${src}#t=0.001`}
         {...mediaProps}
       />
-      {active && <ListenButton onClick={toggle} playing={playing} />}
+      {active && !silent && <SoundButton onClick={toggle} soundOn={soundOn} />}
     </>
   );
 };
 
 const PLAYER_BARS = [0.35, 0.6, 0.85, 0.5, 0.95, 0.7, 0.4, 0.8, 1, 0.65, 0.45, 0.9, 0.55, 0.75, 0.4, 0.6];
 
-/** A track with no picture: an equalizer card that moves while the Listen button plays it. */
-const ShowcaseAudio = ({ active, onListeningChange, src }: ListenMediaProps) => {
+/**
+ * A track with no picture: an equalizer card that moves while its sound is on. The sound button plays and
+ * stops it; it also stops when no longer active or when it scrolls out of view.
+ */
+const ShowcaseAudio = ({
+  active,
+  onSoundChange,
+  src,
+}: {
+  active: boolean;
+  onSoundChange?: (soundOn: boolean) => void;
+  src: string;
+}) => {
   const viewRef = useRef<HTMLDivElement>(null);
-  const { mediaProps, mediaRef, playing, toggle } = useListenPlayback<HTMLAudioElement>(
-    active,
-    onListeningChange,
-    viewRef
-  );
+  const { mediaProps, mediaRef, soundOn, toggle } = useSound<HTMLAudioElement>(onSoundChange);
+
+  useEffect(() => {
+    if (!active) {
+      mediaRef.current?.pause();
+    }
+  }, [active, mediaRef]);
+
+  useEffect(() => {
+    const audio = mediaRef.current;
+    const view = viewRef.current;
+    if (!audio || !view || !soundOn) {
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) {
+        audio.pause();
+      }
+    });
+    observer.observe(view);
+    return () => observer.disconnect();
+  }, [mediaRef, soundOn]);
 
   return (
     <>
-      <div aria-hidden className={classNames(styles.media, styles.player, { [styles.playing]: playing })} ref={viewRef}>
+      <div aria-hidden className={classNames(styles.media, styles.player, { [styles.playing]: soundOn })} ref={viewRef}>
         {PLAYER_BARS.map((height, index) => (
           <span key={index} style={{ '--bar': height, '--delay': `${index * -0.13}s` } as CSSProperties} />
         ))}
       </div>
       <audio preload="none" ref={mediaRef} src={src} {...mediaProps} />
-      {active && <ListenButton onClick={toggle} playing={playing} />}
+      {active && <SoundButton onClick={toggle} soundOn={soundOn} />}
     </>
   );
 };
@@ -266,8 +267,8 @@ type ShowcaseTileProps = {
   inert?: boolean;
   /** Plays a video once instead of looping and reports when it ends (or can't play). */
   onVideoEnded?: () => void;
-  /** Reports when a video or track with sound starts or stops playing. */
-  onListeningChange?: (listening: boolean) => void;
+  /** Reports when the tile's sound is turned on or off. */
+  onSoundChange?: (soundOn: boolean) => void;
   /** Overrides the media's own ratio, e.g. to give a slot a fixed shape. The media is cropped to fit. */
   ratio?: number;
   /** Rough rendered height as a share of the viewport height, for the image's `sizes`. */
@@ -287,7 +288,7 @@ const ShowcaseTile = ({
   href,
   inert,
   item,
-  onListeningChange,
+  onSoundChange,
   onVideoEnded,
   ratio = ratioOf(item),
   sizeVh = 45,
@@ -296,16 +297,17 @@ const ShowcaseTile = ({
   return (
     <figure className={classNames(styles.tile, className)} style={{ '--ratio': ratio, ...style } as CSSProperties}>
       {item.type === 'audio' ? (
-        <ShowcaseAudio active={active} onListeningChange={onListeningChange} src={item.src} />
-      ) : item.type === 'video' && item.audio ? (
-        <ShowcaseListenVideo
+        <ShowcaseAudio active={active} onSoundChange={onSoundChange} src={item.src} />
+      ) : item.type === 'video' ? (
+        <ShowcaseVideo
           active={active}
-          onListeningChange={onListeningChange}
+          eager={eager}
+          onEnded={onVideoEnded}
+          onSoundChange={onSoundChange}
           poster={item.poster}
+          silent={item.silent}
           src={item.src}
         />
-      ) : item.type === 'video' ? (
-        <ShowcaseVideo active={active} eager={eager} onEnded={onVideoEnded} poster={item.poster} src={item.src} />
       ) : (
         <Image
           alt={item.alt}

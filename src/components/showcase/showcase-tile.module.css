@@ -131,7 +131,7 @@
 }
 
 /* Above the tile's link, so it stays clickable on a linked tile. */
-.listen {
+.sound {
   bottom: 10px;
   position: absolute;
   right: 10px;

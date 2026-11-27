@@ -71,6 +71,7 @@ export const SHOWCASE_ENTRIES: ShowcaseEntry[] = [
     height: 544,
     alt: 'Anime-style man running with a small dog through a wheat field at sunset',
     source: VIDEO_STUDIO_MINIMAX_H3,
+    silent: true,
   },
   {
     id: 'gpu-heatsink',
@@ -116,6 +117,7 @@ export const SHOWCASE_ENTRIES: ShowcaseEntry[] = [
     height: 544,
     alt: 'Spider in a dew-covered web at dawn',
     source: VIDEO_STUDIO_MINIMAX_H3,
+    silent: true,
   },
   {
     id: 'lighthouse-storm',
@@ -242,7 +244,6 @@ export const SHOWCASE_ENTRIES: ShowcaseEntry[] = [
     height: 1080,
     alt: 'Retro music player playing Drifting Thoughts, a generated track',
     source: MUSIC_GENERATOR_MINIMAX_MUSIC3,
-    audio: true,
   },
   {
     id: 'music-track-1',
@@ -369,5 +370,6 @@ export const SHOWCASE_ENTRIES: ShowcaseEntry[] = [
     height: 1024,
     alt: 'Woman with glasses writing at a desk with colorful pens',
     source: CHARACTER_SWAP_MINIMAX_H3,
+    silent: true,
   },
 ];

@@ -52,11 +52,11 @@ type ShowcaseRowProps = {
  * full height, which the parent decides.
  */
 const ShowcaseRow = ({ chips = true, className, index, row }: ShowcaseRowProps) => {
-  const [listening, setListening] = useState(false);
+  const [soundOn, setSoundOn] = useState(false);
 
   return (
     <div
-      className={classNames(styles.row, row.reverse && styles.rowReverse, listening && styles.rowListening, className)}
+      className={classNames(styles.row, row.reverse && styles.rowReverse, soundOn && styles.rowSoundOn, className)}
       style={
         {
           '--duration': `${row.duration.toFixed(1)}s`,
@@ -78,7 +78,7 @@ const ShowcaseRow = ({ chips = true, className, index, row }: ShowcaseRowProps) 
                 inert={clone}
                 item={item}
                 key={`${item.id}-${tileIndex}`}
-                onListeningChange={clone ? undefined : setListening}
+                onSoundChange={clone ? undefined : setSoundOn}
               />
             ))}
           </div>
